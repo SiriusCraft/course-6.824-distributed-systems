@@ -3,12 +3,10 @@ package mapreduce
 import "container/list"
 import "fmt"
 
-
 type WorkerInfo struct {
 	address string
 	// You can add definitions here.
 }
-
 
 // Clean up all workers by sending a Shutdown RPC to each one of them Collect
 // the number of jobs each work has performed.
@@ -29,6 +27,80 @@ func (mr *MapReduce) KillWorkers() *list.List {
 }
 
 func (mr *MapReduce) RunMaster() *list.List {
-	// Your code here
+	var mapChan = make(chan int, mr.nMap)
+	var reduceChan = make(chan int, mr.nReduce)
+
+	var send_map = func(worker string, index int) bool {
+		var jobArgs DoJobArgs
+		var jobReply DoJobReply
+		jobArgs.File = mr.file
+		jobArgs.Operation = Map
+		jobArgs.JobNumber = index
+		jobArgs.NumOtherPhase = mr.nReduce
+		return call(worker, "Worker.DoJob", jobArgs, &jobReply)
+	}
+
+	var send_reduce = func(worker string, index int) bool {
+		var jobArgs DoJobArgs
+		var jobReply DoJobReply
+		jobArgs.File = mr.file
+		jobArgs.Operation = Reduce
+		jobArgs.JobNumber = index
+		jobArgs.NumOtherPhase = mr.nMap
+		return call(worker, "Worker.DoJob", jobArgs, &jobReply)
+	}
+
+	for i := 0; i < mr.nMap; i++ {
+		go func(index int) {
+			for {
+				var worker string
+				var ok bool = false
+				select {
+				case worker = <-mr.idleChannel:
+					ok = send_map(worker, index)
+				case worker = <-mr.registerChannel:
+					ok = send_map(worker, index)
+				}
+				if ok {
+					mapChan <- index
+					mr.idleChannel <- worker
+					return
+				}
+			}
+		}(i)
+	}
+
+	for i := 0; i < mr.nMap; i++ {
+		<-mapChan
+	}
+
+	fmt.Println("Map done ...")
+
+	for i := 0; i < mr.nReduce; i++ {
+		go func(index int) {
+			for {
+				var worker string
+				var ok bool = false
+				select {
+				case worker = <-mr.idleChannel:
+					ok = send_reduce(worker, index)
+				case worker = <-mr.registerChannel:
+					ok = send_reduce(worker, index)
+				}
+				if ok {
+					reduceChan <- index
+					mr.idleChannel <- worker
+					return
+				}
+			}
+		}(i)
+	}
+
+	for i := 0; i < mr.nReduce; i++ {
+		<-reduceChan
+	}
+
+	fmt.Println("Reduce done ...")
+
 	return mr.KillWorkers()
 }
