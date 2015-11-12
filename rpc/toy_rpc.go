@@ -83,3 +83,36 @@ func MakeToyServer(conn io.ReadWriteCloser) *ToyServer {
 	go ts.Dispatcher()
 	return ts
 }
+
+func (ts *ToyServer) WriteReply(xid int64, arg int32) {
+	binary.Write(ts.conn, binary.LittleEndian, xid)
+	binary.Write(ts.conn, binary.LittleEndian, arg)
+}
+
+func (ts *ToyServer) ReadRequest() (int64, int32, int32) {
+	var xid int64
+	var procNum int32
+	var arg int32
+	binary.Read(ts.conn, binary.LittleEndian, &xid)
+	binary.Read(ts.conn, binary.LittleEndian, &procNum)
+	binary.Read(ts.conn, binary.LittleEndian, &arg)
+	return xid, procNum, arg
+}
+
+func (ts *ToyServer) Dispatcher() {
+	for {
+		xid, procNum, arg := ts.ReadRequest()
+		ts.mu.Lock()
+		fn, ok := ts.handlers[procNum]
+		ts.mu.Unlock()
+		go func() {
+			var reply int32
+			if ok {
+				reply = fn(arg)
+			}
+			ts.mu.Lock()
+			ts.WriteReply(xid, reply)
+			ts.mu.Unlock()
+		}()
+	}
+}
