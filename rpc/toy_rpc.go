@@ -116,3 +116,32 @@ func (ts *ToyServer) Dispatcher() {
 		}()
 	}
 }
+
+type Pair struct {
+	r *io.PipeReader
+	w *io.PipeWriter
+}
+
+func (p Pair) Read(data []byte) (int, error) {
+	return p.r.Read(data)
+}
+func (p Pair) Write(data []byte) (int, error) {
+	return p.w.Write(data)
+}
+func (p Pair) Close() error {
+	p.r.Close()
+	return p.w.Close()
+}
+
+func main() {
+	r1, w1 := io.Pipe()
+	r2, w2 := io.Pipe()
+	cp := Pair{r: r1, w: w2}
+	sp := Pair{r: r2, w: w1}
+	tc := MakeToyClient(cp)
+	ts := MakeToyServer(sp)
+	ts.handlers[22] = func(a int32) int32 { return a + 1 }
+
+	reply := tc.Call(22, 100)
+	fmt.Printf("Call(22, 100) -> %v\n", reply)
+}
