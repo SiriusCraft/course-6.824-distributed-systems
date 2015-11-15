@@ -95,7 +95,7 @@ func (vs *ViewServer) Ping(args *PingArgs, reply *PingReply) error {
 				vs.primaryAck = num
 				vs.primaryTick = vs.currentTick
 			}
-		case !vs.HasPrimary() && vs.PrimaryAcked():
+		case !vs.HasBackup() && vs.PrimaryAcked():
 			vs.view.Backup = name
 			vs.view.Viewnum++
 			vs.backupTick = vs.currentTick
