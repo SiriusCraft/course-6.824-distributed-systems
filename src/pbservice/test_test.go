@@ -175,7 +175,7 @@ func TestBasicFail(t *testing.T) {
 	time.Sleep(time.Second)
 }
 
-func TestAtMostOnce(t *testing.T) {
+func NTestAtMostOnce(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	tag := "tamo"
@@ -229,7 +229,7 @@ func TestAtMostOnce(t *testing.T) {
 }
 
 // Put right after a backup dies.
-func TestFailPut(t *testing.T) {
+func NTestFailPut(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	tag := "failput"
@@ -318,7 +318,7 @@ func TestFailPut(t *testing.T) {
 // do a bunch of concurrent Put()s on the same key,
 // then check that primary and backup have identical values.
 // i.e. that they processed the Put()s in the same order.
-func TestConcurrentSame(t *testing.T) {
+func NTestConcurrentSame(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	tag := "cs"
@@ -441,7 +441,7 @@ func checkAppends(t *testing.T, v string, counts []int) {
 // do a bunch of concurrent Append()s on the same key,
 // then check that primary and backup have identical values.
 // i.e. that they processed the Append()s in the same order.
-func TestConcurrentSameAppend(t *testing.T) {
+func NTestConcurrentSameAppend(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	tag := "csa"
@@ -548,7 +548,7 @@ func TestConcurrentSameAppend(t *testing.T) {
 	time.Sleep(time.Second)
 }
 
-func TestConcurrentSameUnreliable(t *testing.T) {
+func NTestConcurrentSameUnreliable(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	tag := "csu"
@@ -663,7 +663,7 @@ func TestConcurrentSameUnreliable(t *testing.T) {
 }
 
 // constant put/get while crashing and restarting servers
-func TestRepeatedCrash(t *testing.T) {
+func NTestRepeatedCrash(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	tag := "rc"
@@ -775,7 +775,7 @@ func TestRepeatedCrash(t *testing.T) {
 	time.Sleep(time.Second)
 }
 
-func TestRepeatedCrashUnreliable(t *testing.T) {
+func NTestRepeatedCrashUnreliable(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	tag := "rcu"
@@ -946,7 +946,7 @@ func proxy(t *testing.T, port string, delay *int32) {
 	}()
 }
 
-func TestPartition1(t *testing.T) {
+func NTestPartition1(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	tag := "part1"
@@ -1039,7 +1039,7 @@ func TestPartition1(t *testing.T) {
 	vs.Kill()
 }
 
-func TestPartition2(t *testing.T) {
+func NTestPartition2(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	tag := "part2"
