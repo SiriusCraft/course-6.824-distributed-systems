@@ -119,7 +119,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 	for {
 		ok := call(ck.view.Primary, "PBServer.PutAppend", &args, &reply)
 		if ok {
-			return
+			return 
 		}
 		time.Sleep(viewservice.PingInterval)
 		ck.UpdateView()

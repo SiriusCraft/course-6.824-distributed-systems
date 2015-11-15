@@ -84,7 +84,6 @@ func (pb *PBServer) Get(args *GetArgs, reply *GetReply) error {
 
 
 func (pb *PBServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
-
 	// Your code here.
 	pb.mu.Lock()
 
@@ -131,10 +130,10 @@ func (pb *PBServer) tick() {
 	view, err := pb.vs.Ping(pb.view.Viewnum)
 	if err == nil {
 		if view.Backup != "" && view.Backup != pb.view.Backup && pb.IsPrimary() {
-			pb.ForwardTo(&ForwardArgs{Content: pb.content}, view.Backup)
+			pb.ForwardTo(&ForwardArgs{Content: pb.content, Client: pb.client}, view.Backup)
 		}
-		pb.view = view
-	} 
+	}
+	pb.view = view
 
 	pb.mu.Unlock()
 }
