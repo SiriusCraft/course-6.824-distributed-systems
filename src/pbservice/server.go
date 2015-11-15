@@ -7,6 +7,7 @@ import "log"
 import "time"
 import "viewservice"
 import "sync"
+import "errors"
 import "sync/atomic"
 import "os"
 import "syscall"
@@ -35,8 +36,9 @@ func (pb *PBServer) IsBackup() bool {
 }
 
 func (pb *PBServer) ForwardTo(args *ForwardArgs, name string) error {
-	if name == "":
+	if name == "" {
 		return nil
+	}
 	var reply ForwardReply
 	ok := call(name, "PBServer.FromForward", args, &reply)
 	if !ok {
@@ -87,9 +89,17 @@ func (pb *PBServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error 
 		pb.mu.Unlock()
 		return errors.New("[PutAppend]I am not a primary")
 	}
-	key, value, client, uid := args.Key, args.Value, args.Me, args.UID
-	if pb.content["SEEN." + client] == uid {
-		pb.
+	key, value, op := args.Key, args.Value, args.Op
+	forwardArgs := ForwardArgs{map[string]string{key:value}}
+	err := pb.ForwardTo(&forwardArgs, pb.view.Backup)
+	if err != nil {
+		pb.mu.Unlock()
+		return errors.New("[PutAppend]Forward failed")
+	}
+	if op == "Put" {
+		pb.content[key] = value
+	} else {
+		pb.content[key] = pb.content[key] + value
 	}
 
 	pb.mu.Unlock()

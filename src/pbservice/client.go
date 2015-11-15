@@ -29,7 +29,7 @@ func MakeClerk(vshost string, me string) *Clerk {
 	ck := new(Clerk)
 	ck.vs = viewservice.MakeClerk(me, vshost)
 	// Your ck.* initializations here
-	ck.View = viewservice.View{}
+	ck.view = viewservice.View{}
 	ck.me = strconv.FormatInt(nrand(), 10)
 
 	return ck
@@ -117,7 +117,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 	args := PutAppendArgs{key, value, ck.me, strconv.FormatInt(nrand(), 10), op}
 	var reply PutAppendReply
 	for {
-		ok := call(ck.view.Primary, "PBServer.Put", &args, &reply)
+		ok := call(ck.view.Primary, "PBServer.PutAppend", &args, &reply)
 		if ok {
 			return
 		}

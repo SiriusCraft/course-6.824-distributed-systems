@@ -38,7 +38,7 @@ type GetReply struct {
 
 // Your RPC definitions here.
 type ForwardArgs struct {
-	Content string
+	Content map[string]string
 }
 
 type ForwardReply struct {
