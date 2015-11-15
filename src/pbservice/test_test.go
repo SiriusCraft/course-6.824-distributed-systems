@@ -441,7 +441,7 @@ func checkAppends(t *testing.T, v string, counts []int) {
 // do a bunch of concurrent Append()s on the same key,
 // then check that primary and backup have identical values.
 // i.e. that they processed the Append()s in the same order.
-func NTestConcurrentSameAppend(t *testing.T) {
+func TestConcurrentSameAppend(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	tag := "csa"

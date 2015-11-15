@@ -99,18 +99,18 @@ func (pb *PBServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error 
 		pb.mu.Unlock()
 		return nil
 	}
-	forwardArgs := ForwardArgs{map[string]string{key:value}, map[string]string{client:uid}}
-	err := pb.ForwardTo(&forwardArgs, pb.view.Backup)
-	if err != nil {
-		pb.mu.Unlock()
-		return errors.New("[PutAppend]Forward failed")
-	}
 	if op == "Put" {
 		pb.content[key] = value
 	} else {
 		pb.content[key] = pb.content[key] + value
 	}
 	pb.client[client] = uid
+	forwardArgs := ForwardArgs{map[string]string{key:pb.content[key]}, map[string]string{client:uid}}
+	err := pb.ForwardTo(&forwardArgs, pb.view.Backup)
+	if err != nil {
+		pb.mu.Unlock()
+		return errors.New("[PutAppend]Forward failed")
+	}
 
 	pb.mu.Unlock()
 	return nil
