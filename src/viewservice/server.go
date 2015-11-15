@@ -19,11 +19,11 @@ type ViewServer struct {
 
 	// Your declarations here.
 	view View
-	primaryAck int32
-	backupAck int32
-	tick int32
-	primaryTick int32
-	backupTick int32
+	primaryAck uint
+	backupAck uint
+	currentTick uint
+	primaryTick uint
+	backupTick uint
 }
 
 func (vs *ViewServer) PrimaryAcked() bool {
@@ -31,15 +31,19 @@ func (vs *ViewServer) PrimaryAcked() bool {
 }
 
 func (vs *ViewServer) PrimaryDead() bool {
-	return vs.tick - vs.primaryTick >= DeadPings
+	return vs.currentTick - vs.primaryTick >= DeadPings
+}
+
+func (vs *ViewServer) BackupDead() bool {
+	return vs.currentTick - vs.backupTick >= DeadPings
 }
 
 func (vs *ViewServer) HasPrimary() bool {
 	return vs.view.Primary != ""
 }
 
-func (vs *ViewServer) IsPrimary(name string) bool {
-	return vs.view.Primary == name
+func (vs *ViewServer) HasBackup() bool {
+	return vs.view.Backup != ""
 }
 
 func (vs *ViewServer) PromoteBackup() {
@@ -53,17 +57,13 @@ func (vs *ViewServer) PromoteBackup() {
 	vs.primaryTick = vs.backupTick
 }
 
-func (vs *ViewServer) BackupDead() bool {
-	return vs.tick - vs.backupTick >= DeadPings
-}
-
-func (vs *ViewServer) HasBackup() bool {
-	return vs.view.Backup != ""
-}
-
 func (vs *ViewServer) DiscardBackup() {
 	vs.view.Backup = ""
 	vs.view.Viewnum++
+}
+
+func (vs *ViewServer) IsPrimary(name string) bool {
+	return vs.view.Primary == name
 }
 
 func (vs *ViewServer) IsBackup(name string) bool {
@@ -77,8 +77,8 @@ func (vs *ViewServer) IsBackup(name string) bool {
 func (vs *ViewServer) Ping(args *PingArgs, reply *PingReply) error {
 
 	// Your code here.
-	name := PingArgs.Me
-	num := PingArgs.Viewnum
+	name := args.Me
+	num := args.Viewnum
 
 	vs.mu.Lock()
 
@@ -86,25 +86,26 @@ func (vs *ViewServer) Ping(args *PingArgs, reply *PingReply) error {
 		case !vs.HasPrimary() && vs.view.Viewnum == 0:
 			vs.view.Primary = name
 			vs.view.Viewnum = num + 1
-			vs.primaryTick = vs.tick
+			vs.primaryTick = vs.currentTick
 			vs.primaryAck = 0
 		case vs.IsPrimary(name):
 			if num == 0 {
 				vs.PromoteBackup()
 			} else {
 				vs.primaryAck = num
-				vs.primaryTick = vs.tick
+				vs.primaryTick = vs.currentTick
 			}
 		case !vs.HasPrimary() && vs.PrimaryAcked():
 			vs.view.Backup = name
 			vs.view.Viewnum++
-			vs.backupTick = vs.tick
+			vs.backupTick = vs.currentTick
 		case vs.IsBackup(name):
-			if num == 0 && vs.PrimaryAcked():
+			if num == 0 && vs.PrimaryAcked() {
 				vs.DiscardBackup()
-			else if num != 0:
+			} else if num != 0 {
 				vs.backupAck = num
-				vs.backupTick = vs.tick
+				vs.backupTick = vs.currentTick
+			}
 	}
 	reply.View = vs.view
 
@@ -121,7 +122,7 @@ func (vs *ViewServer) Get(args *GetArgs, reply *GetReply) error {
 	// Your code here.
 	vs.mu.Lock()
 
-	reply.view = vs.view
+	reply.View = vs.view
 
 	vs.mu.Unlock()
 
@@ -139,7 +140,7 @@ func (vs *ViewServer) tick() {
 	// Your code here.
 	vs.mu.Lock()
 
-	vs.tick++
+	vs.currentTick++
 	if (vs.PrimaryDead() && vs.PrimaryAcked()) {
 		vs.PromoteBackup()
 	}
@@ -147,7 +148,7 @@ func (vs *ViewServer) tick() {
 		vs.DiscardBackup()
 	}
 
-	vs.view.Unlock()
+	vs.mu.Unlock()
 }
 
 //
@@ -179,7 +180,7 @@ func StartServer(me string) *ViewServer {
 	vs.view = View{0, "", ""}
 	vs.primaryAck = 0
 	vs.backupAck = 0
-	vs.tick = 0
+	vs.currentTick = 0
 	vs.primaryTick = 0
 	vs.backupTick = 0
 
