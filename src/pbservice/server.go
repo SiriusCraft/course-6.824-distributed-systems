@@ -25,6 +25,7 @@ type PBServer struct {
 	// Your declarations here.
 	view 	   viewservice.View
 	content    map[string]string
+	client     map[string]string
 }
 
 func (pb *PBServer) IsPrimary() bool {
@@ -56,6 +57,9 @@ func (pb *PBServer) FromForward(args *ForwardArgs, reply *ForwardReply) error {
 	}
 	for key, value := range args.Content {
 		pb.content[key] = value
+	}
+	for key, value := range args.Client {
+		pb.client[key] = value
 	}
 
 	pb.mu.Unlock()
@@ -90,7 +94,12 @@ func (pb *PBServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error 
 		return errors.New("[PutAppend]I am not a primary")
 	}
 	key, value, op := args.Key, args.Value, args.Op
-	forwardArgs := ForwardArgs{map[string]string{key:value}}
+	client, uid := args.Me, args.UID
+	if pb.client[client] == uid {
+		pb.mu.Unlock()
+		return nil
+	}
+	forwardArgs := ForwardArgs{map[string]string{key:value}, map[string]string{client:uid}}
 	err := pb.ForwardTo(&forwardArgs, pb.view.Backup)
 	if err != nil {
 		pb.mu.Unlock()
@@ -101,6 +110,7 @@ func (pb *PBServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error 
 	} else {
 		pb.content[key] = pb.content[key] + value
 	}
+	pb.client[client] = uid
 
 	pb.mu.Unlock()
 	return nil
@@ -162,6 +172,7 @@ func StartServer(vshost string, me string) *PBServer {
 	// Your pb.* initializations here.
 	pb.view = viewservice.View{}
 	pb.content = make(map[string]string)
+	pb.client = make(map[string]string)
 
 	rpcs := rpc.NewServer()
 	rpcs.Register(pb)

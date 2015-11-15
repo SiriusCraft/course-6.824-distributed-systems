@@ -33,7 +33,7 @@ func port(tag string, host int) string {
 	return s
 }
 
-func TestBasicFail(t *testing.T) {
+func NTestBasicFail(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	tag := "basic"
