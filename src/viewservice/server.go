@@ -19,8 +19,57 @@ type ViewServer struct {
 
 	// Your declarations here.
 	view View
-
+	primaryAck int32
+	backupAck int32
+	tick int32
+	primaryTick int32
+	backupTick int32
 }
+
+func (vs *ViewServer) PrimaryAcked() bool {
+	return vs.view.Viewnum == vs.primaryAck
+}
+
+func (vs *ViewServer) PrimaryDead() bool {
+	return vs.tick - vs.primaryTick >= DeadPings
+}
+
+func (vs *ViewServer) HasPrimary() bool {
+	return vs.view.Primary != ""
+}
+
+func (vs *ViewServer) IsPrimary(name string) bool {
+	return vs.view.Primary == name
+}
+
+func (vs *ViewServer) PromoteBackup() {
+	if !vs.HasBackup() {
+		return
+	}
+	vs.view.Primary = vs.view.Backup
+	vs.view.Backup = ""
+	vs.view.Viewnum++
+	vs.primaryAck = vs.backupAck
+	vs.primaryTick = vs.backupTick
+}
+
+func (vs *ViewServer) BackupDead() bool {
+	return vs.tick - vs.backupTick >= DeadPings
+}
+
+func (vs *ViewServer) HasBackup() bool {
+	return vs.view.Backup != ""
+}
+
+func (vs *ViewServer) DiscardBackup() {
+	vs.view.Backup = ""
+	vs.view.Viewnum++
+}
+
+func (vs *ViewServer) IsBackup(name string) bool {
+	return vs.view.Backup == name
+}
+
 
 //
 // server Ping RPC handler.
@@ -28,8 +77,38 @@ type ViewServer struct {
 func (vs *ViewServer) Ping(args *PingArgs, reply *PingReply) error {
 
 	// Your code here.
-	addr := PingArgs.Me
+	name := PingArgs.Me
 	num := PingArgs.Viewnum
+
+	vs.mu.Lock()
+
+	switch {
+		case !vs.HasPrimary() && vs.view.Viewnum == 0:
+			vs.view.Primary = name
+			vs.view.Viewnum = num + 1
+			vs.primaryTick = vs.tick
+			vs.primaryAck = 0
+		case vs.IsPrimary(name):
+			if num == 0 {
+				vs.PromoteBackup()
+			} else {
+				vs.primaryAck = num
+				vs.primaryTick = vs.tick
+			}
+		case !vs.HasPrimary() && vs.PrimaryAcked():
+			vs.view.Backup = name
+			vs.view.Viewnum++
+			vs.backupTick = vs.tick
+		case vs.IsBackup(name):
+			if num == 0 && vs.PrimaryAcked():
+				vs.DiscardBackup()
+			else if num != 0:
+				vs.backupAck = num
+				vs.backupTick = vs.tick
+	}
+	reply.View = vs.view
+
+	vs.mu.Unlock()
 
 	return nil
 }
@@ -41,7 +120,9 @@ func (vs *ViewServer) Get(args *GetArgs, reply *GetReply) error {
 
 	// Your code here.
 	vs.mu.Lock()
+
 	reply.view = vs.view
+
 	vs.mu.Unlock()
 
 	return nil
@@ -56,7 +137,17 @@ func (vs *ViewServer) Get(args *GetArgs, reply *GetReply) error {
 func (vs *ViewServer) tick() {
 
 	// Your code here.
+	vs.mu.Lock()
 
+	vs.tick++
+	if (vs.PrimaryDead() && vs.PrimaryAcked()) {
+		vs.PromoteBackup()
+	}
+	if (vs.HasBackup() && vs.BackupDead() && vs.PrimaryAcked()) {
+		vs.DiscardBackup()
+	}
+
+	vs.view.Unlock()
 }
 
 //
@@ -85,6 +176,12 @@ func StartServer(me string) *ViewServer {
 	vs := new(ViewServer)
 	vs.me = me
 	// Your vs.* initializations here.
+	vs.view = View{0, "", ""}
+	vs.primaryAck = 0
+	vs.backupAck = 0
+	vs.tick = 0
+	vs.primaryTick = 0
+	vs.backupTick = 0
 
 	// tell net/rpc about our RPC server and handlers.
 	rpcs := rpc.NewServer()
