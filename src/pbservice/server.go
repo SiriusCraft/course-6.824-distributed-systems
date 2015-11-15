@@ -22,8 +22,28 @@ type PBServer struct {
 	me         string
 	vs         *viewservice.Clerk
 	// Your declarations here.
+	view 	   viewservice.View
+	content    map[string]string
 }
 
+func (pb *PBServer) IsPrimary() bool {
+	return pb.view.Primary == pb.me
+}
+
+func (pb *PBServer) IsBackup() bool {
+	return pb.view.Backup == pb.me
+}
+
+func (pb *PBServer) ForwardTo(args *ForwardArgs, name string) error {
+	if name == "":
+		return nil
+	var reply ForwardReply
+	ok := call(name, "PBServer.FromForward", args, &reply)
+	if !ok {
+		return errors.New("[Foward] failed to forward put")
+	}
+	return nil
+}
 
 func (pb *PBServer) Get(args *GetArgs, reply *GetReply) error {
 
@@ -51,6 +71,17 @@ func (pb *PBServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error 
 func (pb *PBServer) tick() {
 
 	// Your code here.
+	pb.mu.Lock()
+
+	view, err := pb.vs.Ping(pb.view.Viewnum)
+	if err == nil {
+		if view.Backup != "" && view.Backup != pb.view.Backup && pb.IsPrimary() {
+			pb.ForwardTo(&ForwardArgs{Content: pb.content}, view.Backup)
+		}
+		pb.view = view
+	} 
+
+	pb.mu.Unlock()
 }
 
 // tell the server to shut itself down.
