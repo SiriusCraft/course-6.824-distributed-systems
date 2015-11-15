@@ -18,6 +18,8 @@ type ViewServer struct {
 
 
 	// Your declarations here.
+	view View
+
 }
 
 //
@@ -26,6 +28,8 @@ type ViewServer struct {
 func (vs *ViewServer) Ping(args *PingArgs, reply *PingReply) error {
 
 	// Your code here.
+	addr := PingArgs.Me
+	num := PingArgs.Viewnum
 
 	return nil
 }
@@ -36,6 +40,9 @@ func (vs *ViewServer) Ping(args *PingArgs, reply *PingReply) error {
 func (vs *ViewServer) Get(args *GetArgs, reply *GetReply) error {
 
 	// Your code here.
+	vs.mu.Lock()
+	reply.view = vs.view
+	vs.mu.Unlock()
 
 	return nil
 }
@@ -49,6 +56,7 @@ func (vs *ViewServer) Get(args *GetArgs, reply *GetReply) error {
 func (vs *ViewServer) tick() {
 
 	// Your code here.
+
 }
 
 //
