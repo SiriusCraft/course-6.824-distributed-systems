@@ -40,15 +40,39 @@ func (pb *PBServer) ForwardTo(args *ForwardArgs, name string) error {
 	var reply ForwardReply
 	ok := call(name, "PBServer.FromForward", args, &reply)
 	if !ok {
-		return errors.New("[Foward] failed to forward put")
+		return errors.New("[ForwardTo] failed to forward put")
 	}
+	return nil
+}
+
+func (pb *PBServer) FromForward(args *ForwardArgs, reply *ForwardReply) error {
+	pb.mu.Lock()
+
+	if !pb.IsBackup() {
+		pb.mu.Unlock()
+		return errors.New("[FromForward]I am not a backup")
+	}
+	for key, value := range args.Content {
+		pb.content[key] = value
+	}
+
+	pb.mu.Unlock()
 	return nil
 }
 
 func (pb *PBServer) Get(args *GetArgs, reply *GetReply) error {
 
 	// Your code here.
+	pb.mu.Lock()
 
+	if !pb.IsPrimary() {
+		reply.Err = ErrWrongServer
+		pb.mu.Unlock()
+		return errors.New("[Get]I am not a primary")
+	}
+	reply.Value = pb.content[args.Key]
+
+	pb.mu.Unlock()
 	return nil
 }
 
@@ -56,8 +80,19 @@ func (pb *PBServer) Get(args *GetArgs, reply *GetReply) error {
 func (pb *PBServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
 
 	// Your code here.
+	pb.mu.Lock()
 
+	if !pb.IsPrimary() {
+		reply.Err = ErrWrongServer
+		pb.mu.Unlock()
+		return errors.New("[PutAppend]I am not a primary")
+	}
+	key, value, client, uid := args.Key, args.Value, args.Me, args.UID
+	if pb.content["SEEN." + client] == uid {
+		pb.
+	}
 
+	pb.mu.Unlock()
 	return nil
 }
 
@@ -115,6 +150,8 @@ func StartServer(vshost string, me string) *PBServer {
 	pb.me = me
 	pb.vs = viewservice.MakeClerk(me, vshost)
 	// Your pb.* initializations here.
+	pb.view = viewservice.View{}
+	pb.content = make(map[string]string)
 
 	rpcs := rpc.NewServer()
 	rpcs.Register(pb)
