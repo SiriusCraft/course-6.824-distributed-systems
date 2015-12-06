@@ -206,6 +206,7 @@ func (px *Paxos) propose(seq int, v interface{}) {
 			ok = px.sendAccept(seq, number, value)
 		}
 		if ok {
+			fmt.Printf("Sending Decision ...")
 			px.sendDecision(seq, number, value)
 			break
 		}
@@ -253,10 +254,13 @@ func (px *Paxos) ProcessAccept(args *PaxosArgs, reply *PaxosReply) error {
 	if !exist {
 		px.MakePaxosInstance(seq, nil)
 	}
-	
+
+	fmt.Printf("number1 : " + px.instances[seq].number + "\n")
+	fmt.Printf("number2 : " + number + "\n")
 	if number >= px.instances[seq].number {
 		px.instances[seq].acceptedNumber = number
 		px.instances[seq].value = value
+		px.instances[seq].number = number
 		reply.Result = OK
 	}
 
@@ -310,9 +314,6 @@ func (px *Paxos) Start(seq int, v interface{}) {
 //
 func (px *Paxos) Done(seq int) {
 	// Your code here.
-	px.mu.Lock()
-	defer px.mu.Unlock()
-
 	if px.dones[px.me] < seq {
 		px.dones[px.me] = seq
 	}
@@ -325,9 +326,6 @@ func (px *Paxos) Done(seq int) {
 //
 func (px *Paxos) Max() int {
 	// Your code here.
-	px.mu.Lock()
-	defer px.mu.Unlock()
-
 	maxSeq := 0
 	for seq, _ := range px.instances {
 		if seq > maxSeq {
@@ -394,12 +392,12 @@ func (px *Paxos) Min() int {
 //
 func (px *Paxos) Status(seq int) (Fate, interface{}) {
 	// Your code here.
-	px.mu.Lock()
-	defer px.mu.Unlock()
-
 	if (seq < px.Min()) {
 		return Forgotten, nil
 	}
+
+	px.mu.Lock()
+	defer px.mu.Unlock()
 
 	_, exist := px.instances[seq]; 
 	if !exist || !px.instances[seq].decided {
