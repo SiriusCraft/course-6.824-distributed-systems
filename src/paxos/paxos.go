@@ -71,6 +71,7 @@ type Paxos struct {
 type PaxosArgs struct {
 	Seq int
 	Number string
+	Value string
 }
 
 type PaxosReply struct {
@@ -135,8 +136,8 @@ func (px *Paxos) generateProposalNumber(seq int) string {
 	return strconv.FormatInt(duration.Nanoseconds(), 10) + "-" + strconv.Itoa(px.me)
 }
 
-func (px *Paxos) sendPrepare(seq int, n string, v interface {}) {
-	number := n
+func (px *Paxos) sendPrepare(seq int, n string, v interface{}) {
+	number := INITIAL_NUMBER
 	value := v
 	okCnt := 0
 
@@ -163,12 +164,34 @@ func (px *Paxos) sendPrepare(seq int, n string, v interface {}) {
 	return ok, number, value
 }
 
+func (px *Paxos) sendAccept(seq int, n string, v interface{}) {
+	okCnt := 0
+	for i, acceptor := range px.peers {
+		go func(i int, acceptor string) {
+			args := PaxosArgs{Seq: seq, Number: n, Value: v}
+			var reply PaxosReply{Result: REJECT}
+			if i == px.me {
+				px.processAccept(&args, &reply)
+			} else {
+				call(acceptor, "Paxos.processAccept", &args, &reply)
+			}
+			if reply.Result == OK {
+				okCnt++
+			}
+		}(i, acceptor)
+	}
 
-func (px *Paxos) propose(seq int, v interface {}) {
+	ok := okCnt > len(px.peers) / 2
+	return ok
+}
+
+func (px *Paxos) propose(seq int, v interface{}) {
 	for {
 		n := generateProposalNumber(seq)
 		ok, number, value := px.sendPrepare(seq, n)
-		px.sendAccept
+		if ok {
+			ok = px.sendAccept(seq, number, value)
+		}
 	}
 }
 
@@ -179,12 +202,11 @@ func (px *Paxos) processPrepare(args *PaxosArgs, reply *PaxosReply) error {
 
 	seq := args.seq
 	number := args.number
-	value := args.value
 	reply.Result = REJECT
 
 	_, exist := px.instances[seq]
 	if !exist {
-		px.MakePaxosInstance(seq, value)
+		px.MakePaxosInstance(seq, nil)
 		reply.Result = OK
 	} else {
 		if (px.instances[seq].number < number) {
@@ -196,6 +218,29 @@ func (px *Paxos) processPrepare(args *PaxosArgs, reply *PaxosReply) error {
 		reply.Number = px.instances[seq].acceptedNumber
 		reply.Value = px.instances[seq].value
 		px.instances[seq].number = number
+	}
+
+	return nil
+}
+
+func (px *Paxos) processAccept(args *PaxosArgs, reply *PaxosReply) error {
+	px.mu.Lock()
+	defer px.mu.Unlock()
+
+	seq := args.seq
+	number := args.number
+	value := args.value
+	reply.Result = REJECT
+
+	_, exist := px.instances[seq]
+	if !exist {
+		px.MakePaxosInstance(seq, nil)
+	}
+
+	if number >= px.instances[seq].number {
+		px.instances[seq].acceptedNumber = number
+		px.instances[seq].value = value
+		reply.Result = OK
 	}
 
 	return nil
