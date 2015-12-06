@@ -289,7 +289,7 @@ func (px *Paxos) Start(seq int, v interface{}) {
 		return
 	}
 
-	go func(){
+	go func() {
 		px.propose(seq, v)
 	}()
 }
