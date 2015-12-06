@@ -71,7 +71,7 @@ type Paxos struct {
 type PaxosArgs struct {
 	Seq int
 	Number string
-	Value string
+	Value interface{}
 }
 
 type PaxosReply struct {
@@ -89,8 +89,8 @@ type PaxosInstance struct {
 func (px *Paxos) MakePaxosInstance(seq int, v interface{}) {
 	px.instances[seq] = &PaxosInstance{
 		number: INITIAL_NUMBER,
-		value: v
-	}
+		acceptedNumber: INITIAL_NUMBER, 
+		value: v}
 }
 
 //
@@ -131,7 +131,7 @@ func call(srv string, name string, args interface{}, reply interface{}) bool {
 
 
 // Paxos Algorithm - Proposer
-func (px *Paxos) generateProposalNumber(seq int) string {
+func (px *Paxos) generateProposalNumber() string {
 	duration := time.Now().Sub(time.Date(1994, time.January, 30, 8, 0, 0, 0, time.UTC))
 	return strconv.FormatInt(duration.Nanoseconds(), 10) + "-" + strconv.Itoa(px.me)
 }
@@ -197,13 +197,13 @@ func (px *Paxos) sendDecision(seq int, n string, v interface{}) {
 
 func (px *Paxos) propose(seq int, v interface{}) {
 	for {
-		n := generateProposalNumber(seq)
-		ok, number, value := px.sendPrepare(seq, n)
+		n := px.generateProposalNumber()
+		ok, number, value := px.sendPrepare(seq, n, v)
 		if ok {
 			ok = px.sendAccept(seq, number, value)
 		}
 		if ok {
-			ok = px.sendDecision(seq, number, value)
+			px.sendDecision(seq, number, value)
 			break
 		}
 	}
@@ -214,8 +214,8 @@ func (px *Paxos) processPrepare(args *PaxosArgs, reply *PaxosReply) error {
 	px.mu.Lock()
 	defer px.mu.Unlock()
 
-	seq := args.seq
-	number := args.number
+	seq := args.Seq
+	number := args.Number
 	reply.Result = REJECT
 
 	_, exist := px.instances[seq]
@@ -241,9 +241,9 @@ func (px *Paxos) processAccept(args *PaxosArgs, reply *PaxosReply) error {
 	px.mu.Lock()
 	defer px.mu.Unlock()
 
-	seq := args.seq
-	number := args.number
-	value := args.value
+	seq := args.Seq
+	number := args.Number
+	value := args.Value
 	reply.Result = REJECT
 
 	_, exist := px.instances[seq]
@@ -264,11 +264,12 @@ func (px *Paxos) processDecision(args *PaxosArgs, reply *PaxosReply) error {
 	px.mu.Lock()
 	defer px.mu.Unlock()
 
-	seq := args.seq
-	number := args.number
-	value := args.value
-
 	// TODO
+	/*
+	seq := args.Seq
+	number := args.Number
+	value := args.Value
+	*/
 
 	return nil
 }
@@ -405,7 +406,7 @@ func Make(peers []string, me int, rpcs *rpc.Server) *Paxos {
 
 
 	// Your initialization code here.
-
+	px.instances = map[int]*PaxosInstance{}
 
 	if rpcs != nil {
 		// caller will create socket &c
