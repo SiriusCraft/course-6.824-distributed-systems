@@ -309,6 +309,7 @@ func (px *Paxos) Start(seq int, v interface{}) {
 // see the comments for Min() for more explanation.
 //
 func (px *Paxos) Done(seq int) {
+	// Your code here.
 	px.mu.Lock()
 	defer px.mu.Unlock()
 
@@ -324,7 +325,16 @@ func (px *Paxos) Done(seq int) {
 //
 func (px *Paxos) Max() int {
 	// Your code here.
-	return 0
+	px.mu.Lock()
+	defer px.mu.Unlock()
+
+	maxSeq := 0
+	for seq, _ := range px.instances {
+		if seq > maxSeq {
+			maxSeq = seq
+		}
+	}
+	return maxSeq
 }
 
 //
@@ -384,7 +394,18 @@ func (px *Paxos) Min() int {
 //
 func (px *Paxos) Status(seq int) (Fate, interface{}) {
 	// Your code here.
-	return Pending, nil
+	px.mu.Lock()
+	defer px.mu.Unlock()
+
+	if (seq < px.Min()) {
+		return Forgotten, nil
+	}
+
+	_, exist := px.instances[seq]; 
+	if !exist{
+		return false, nil
+	}
+	return px.instances[seq].decided, px.instances[seq].value;
 }
 
 
