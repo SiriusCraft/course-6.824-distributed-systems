@@ -369,7 +369,7 @@ func (px *Paxos) Min() int {
 	px.mu.Lock()
 	defer px.mu.Unlock()
 
-	minSeq = px.dones[px.me]
+	minSeq := px.dones[px.me]
 	for _, seq := range px.dones {
 		if minSeq > seq {
 			minSeq = seq
@@ -402,10 +402,10 @@ func (px *Paxos) Status(seq int) (Fate, interface{}) {
 	}
 
 	_, exist := px.instances[seq]; 
-	if !exist{
-		return false, nil
+	if !exist || !px.instances[seq].decided {
+		return Pending, nil
 	}
-	return px.instances[seq].decided, px.instances[seq].value;
+	return Decided, px.instances[seq].value;
 }
 
 
