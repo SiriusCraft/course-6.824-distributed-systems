@@ -30,7 +30,8 @@ import "sync"
 import "sync/atomic"
 import "fmt"
 import "math/rand"
-
+import "time"
+import "strconv"
 
 // px.Status() return values, indicating
 // whether an agreement has been decided,
@@ -44,6 +45,11 @@ const (
 	Forgotten      // decided but forgotten.
 )
 
+const (
+	OK 			 = "OK"
+	REJECT 		 = "REJECT"
+)
+
 type Paxos struct {
 	mu         sync.Mutex
 	l          net.Listener
@@ -55,6 +61,17 @@ type Paxos struct {
 
 
 	// Your data here.
+}
+
+type PaxosArgs struct {
+	Seq int
+	Number string
+}
+
+type PaxosReply struct {
+	Result string
+	Number string
+	Value interface{}
 }
 
 //
@@ -94,6 +111,48 @@ func call(srv string, name string, args interface{}, reply interface{}) bool {
 }
 
 
+// Paxos Algorithm - Proposer
+func (px *Paxos) generateProposalNumber(seq int) string {
+	duration := time.Now().Sub(time.Date(1994, time.January, 30, 8, 0, 0, 0, time.UTC))
+	return strconv.FormatInt(duration.Nanoseconds(), 10) + "-" + strconv.Itoa(px.me)
+}
+
+func (px *Paxos) sendPrepare(seq int, n string, v interface {}) {
+	number := n
+	value := v
+	okCnt := 0
+
+	for i, acceptor := range px.peers {
+		go func(i int, acceptor string) {
+			args := PaxosArgs{Seq: seq, Number: n}
+			var reply PaxosReply{Result: REJECT}
+			if i == px.me {
+				px.processPrepare(&args, &reply)
+			} else {
+				call(acceptor, "Paxos.processPrepare", &args, &reply)
+			}
+			if reply.Result == OK {
+				if reply.Number > number {
+					number = reply.Number
+					value = reply.Value
+				}
+				okCnt++
+			}
+		}(i, acceptor)
+	}
+
+	ok := okCnt > len(px.peers) / 2
+	return ok, number, value
+}
+
+
+func (px *Paxos) propose(seq int, v interface {}) {
+	for {
+		n := generateProposalNumber(seq)
+		ok, number, value := px.sendPrepare(seq, n)
+	}
+}
+
 //
 // the application wants paxos to start agreement on
 // instance seq, with proposed value v.
@@ -103,6 +162,16 @@ func call(srv string, name string, args interface{}, reply interface{}) bool {
 //
 func (px *Paxos) Start(seq int, v interface{}) {
 	// Your code here.
+	px.mu.Lock()
+	defer px.mu.Unlock()
+
+	if (seq < px.Min()) {
+		return
+	}
+
+	go func(){
+		px.propose(seq, v)
+	}()
 }
 
 //
@@ -216,6 +285,7 @@ func Make(peers []string, me int, rpcs *rpc.Server) *Paxos {
 
 
 	// Your initialization code here.
+
 
 	if rpcs != nil {
 		// caller will create socket &c
