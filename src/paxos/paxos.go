@@ -260,6 +260,19 @@ func (px *Paxos) processAccept(args *PaxosArgs, reply *PaxosReply) error {
 	return nil
 }
 
+func (px *Paxos) processDecision(args *PaxosArgs, reply *PaxosReply) error {
+	px.mu.Lock()
+	defer px.mu.Unlock()
+
+	seq := args.seq
+	number := args.number
+	value := args.value
+
+	// TODO
+
+	return nil
+}
+
 //
 // the application wants paxos to start agreement on
 // instance seq, with proposed value v.
