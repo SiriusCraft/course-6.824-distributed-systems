@@ -351,8 +351,23 @@ func (px *Paxos) Max() int {
 // instances.
 //
 func (px *Paxos) Min() int {
-	// You code here.
-	return 0
+	px.mu.Lock()
+	defer px.mu.Unlock()
+
+	minSeq = px.dones[px.me]
+	for _, seq := range px.dones {
+		if minSeq > seq {
+			minSeq = seq
+		}
+	}
+
+	for seq, _ := range px.instances {
+		if seq <= minSeq {
+			delete(px.instances, seq)
+		}
+	}
+
+	return minSeq + 1
 }
 
 //
