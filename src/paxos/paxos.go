@@ -50,6 +50,10 @@ const (
 	REJECT 		 = "REJECT"
 )
 
+const (
+	INITIAL_NUMBER = "0"
+)
+
 type Paxos struct {
 	mu         sync.Mutex
 	l          net.Listener
@@ -61,6 +65,7 @@ type Paxos struct {
 
 
 	// Your data here.
+	instances  map[int]*PaxosInstance
 }
 
 type PaxosArgs struct {
@@ -72,6 +77,19 @@ type PaxosReply struct {
 	Result string
 	Number string
 	Value interface{}
+}
+
+type PaxosInstance struct {
+	number string
+	acceptedNumber string
+	value interface{}
+}
+
+func (px *Paxos) MakePaxosInstance(seq int, v interface{}) {
+	px.instances[seq] = &PaxosInstance{
+		number: INITIAL_NUMBER,
+		value: v
+	}
 }
 
 //
@@ -150,7 +168,37 @@ func (px *Paxos) propose(seq int, v interface {}) {
 	for {
 		n := generateProposalNumber(seq)
 		ok, number, value := px.sendPrepare(seq, n)
+		px.sendAccept
 	}
+}
+
+// Paxos Algorithm - Acceptor
+func (px *Paxos) processPrepare(args *PaxosArgs, reply *PaxosReply) error {
+	px.mu.Lock()
+	defer px.mu.Unlock()
+
+	seq := args.seq
+	number := args.number
+	value := args.value
+	reply.Result = REJECT
+
+	_, exist := px.instances[seq]
+	if !exist {
+		px.MakePaxosInstance(seq, value)
+		reply.Result = OK
+	} else {
+		if (px.instances[seq].number < number) {
+			reply.Result = OK
+		}
+	}
+
+	if reply.Result == OK {
+		reply.Number = px.instances[seq].acceptedNumber
+		reply.Value = px.instances[seq].value
+		px.instances[seq].number = number
+	}
+
+	return nil
 }
 
 //
