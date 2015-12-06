@@ -66,12 +66,15 @@ type Paxos struct {
 
 	// Your data here.
 	instances  map[int]*PaxosInstance
+	dones map[int]int
 }
 
 type PaxosArgs struct {
 	Seq int
 	Number string
 	Value interface{}
+	Done int
+	Me int
 }
 
 type PaxosReply struct {
@@ -84,6 +87,7 @@ type PaxosInstance struct {
 	number string
 	acceptedNumber string
 	value interface{}
+	decided bool
 }
 
 func (px *Paxos) MakePaxosInstance(seq int, v interface{}) {
@@ -182,13 +186,12 @@ func (px *Paxos) sendAccept(seq int, n string, v interface{}) bool {
 }
 
 func (px *Paxos) sendDecision(seq int, n string, v interface{}) {
+	px.instances[seq].decided = true
 	for i, acceptor := range px.peers {
 		go func(i int, acceptor string) {
-			args := PaxosArgs{Seq: seq, Number: n, Value: v}
+			args := PaxosArgs{Seq: seq, Number: n, Value: v, Done: px.dones[px.me], Me: px.me}
 			reply := PaxosReply{}
 			if i != px.me {
-				px.ProcessDecision(&args, &reply)
-			} else {
 				call(acceptor, "Paxos.ProcessDecision", &args, &reply)
 			}
 		}(i, acceptor)
@@ -227,7 +230,7 @@ func (px *Paxos) ProcessPrepare(args *PaxosArgs, reply *PaxosReply) error {
 			reply.Result = OK
 		}
 	}
-
+	
 	if reply.Result == OK {
 		reply.Number = px.instances[seq].acceptedNumber
 		reply.Value = px.instances[seq].value
@@ -250,7 +253,7 @@ func (px *Paxos) ProcessAccept(args *PaxosArgs, reply *PaxosReply) error {
 	if !exist {
 		px.MakePaxosInstance(seq, nil)
 	}
-
+	
 	if number >= px.instances[seq].number {
 		px.instances[seq].acceptedNumber = number
 		px.instances[seq].value = value
@@ -264,12 +267,20 @@ func (px *Paxos) ProcessDecision(args *PaxosArgs, reply *PaxosReply) error {
 	px.mu.Lock()
 	defer px.mu.Unlock()
 
-	// TODO
-	/*
 	seq := args.Seq
 	number := args.Number
 	value := args.Value
-	*/
+
+	_, exist := px.instances[seq]
+	if !exist {
+		px.MakePaxosInstance(seq, nil)
+	}
+	
+	px.instances[seq].acceptedNumber = number
+	px.instances[seq].value = value
+	px.instances[seq].decided = true
+
+	px.dones[args.Me] = args.Done
 
 	return nil
 }
@@ -403,6 +414,10 @@ func Make(peers []string, me int, rpcs *rpc.Server) *Paxos {
 
 	// Your initialization code here.
 	px.instances = map[int]*PaxosInstance{}
+	px.dones = map[int]int{}
+	for i := range px.peers {
+		px.dones[i] = -1
+	}
 
 	if rpcs != nil {
 		// caller will create socket &c
