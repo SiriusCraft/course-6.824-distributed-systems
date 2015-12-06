@@ -136,53 +136,63 @@ func (px *Paxos) generateProposalNumber(seq int) string {
 	return strconv.FormatInt(duration.Nanoseconds(), 10) + "-" + strconv.Itoa(px.me)
 }
 
-func (px *Paxos) sendPrepare(seq int, n string, v interface{}) {
+func (px *Paxos) sendPrepare(seq int, n string, v interface{}) (bool, string, interface{}) {
 	number := INITIAL_NUMBER
 	value := v
 	okCnt := 0
+	args := PaxosArgs{Seq: seq, Number: n}
+	reply := PaxosReply{Result: REJECT}
 
 	for i, acceptor := range px.peers {
-		go func(i int, acceptor string) {
-			args := PaxosArgs{Seq: seq, Number: n}
-			var reply PaxosReply{Result: REJECT}
-			if i == px.me {
-				px.processPrepare(&args, &reply)
-			} else {
-				call(acceptor, "Paxos.processPrepare", &args, &reply)
+		if i == px.me {
+			px.processPrepare(&args, &reply)
+		} else {
+			call(acceptor, "Paxos.processPrepare", &args, &reply)
+		}
+		if reply.Result == OK {
+			if reply.Number > number {
+				number = reply.Number
+				value = reply.Value
 			}
-			if reply.Result == OK {
-				if reply.Number > number {
-					number = reply.Number
-					value = reply.Value
-				}
-				okCnt++
-			}
-		}(i, acceptor)
+			okCnt++
+		}
 	}
 
 	ok := okCnt > len(px.peers) / 2
 	return ok, number, value
 }
 
-func (px *Paxos) sendAccept(seq int, n string, v interface{}) {
+func (px *Paxos) sendAccept(seq int, n string, v interface{}) bool {
 	okCnt := 0
+	args := PaxosArgs{Seq: seq, Number: n, Value: v}
+	reply := PaxosReply{Result: REJECT}
 	for i, acceptor := range px.peers {
-		go func(i int, acceptor string) {
-			args := PaxosArgs{Seq: seq, Number: n, Value: v}
-			var reply PaxosReply{Result: REJECT}
-			if i == px.me {
-				px.processAccept(&args, &reply)
-			} else {
-				call(acceptor, "Paxos.processAccept", &args, &reply)
-			}
-			if reply.Result == OK {
-				okCnt++
-			}
-		}(i, acceptor)
+		if i == px.me {
+			px.processAccept(&args, &reply)
+		} else {
+			call(acceptor, "Paxos.processAccept", &args, &reply)
+		}
+		if reply.Result == OK {
+			okCnt++
+		}
 	}
 
 	ok := okCnt > len(px.peers) / 2
 	return ok
+}
+
+func (px *Paxos) sendDecision(seq int, n string, v interface{}) {
+	for i, acceptor := range px.peers {
+		go func(i int, acceptor string) {
+			args := PaxosArgs{Seq: seq, Number: n, Value: v}
+			reply := PaxosReply{}
+			if i != px.me {
+				px.processDecision(&args, &reply)
+			} else {
+				call(acceptor, "Paxos.processDecision", &args, &reply)
+			}
+		}(i, acceptor)
+	}
 }
 
 func (px *Paxos) propose(seq int, v interface{}) {
@@ -191,6 +201,10 @@ func (px *Paxos) propose(seq int, v interface{}) {
 		ok, number, value := px.sendPrepare(seq, n)
 		if ok {
 			ok = px.sendAccept(seq, number, value)
+		}
+		if ok {
+			ok = px.sendDecision(seq, number, value)
+			break
 		}
 	}
 }
