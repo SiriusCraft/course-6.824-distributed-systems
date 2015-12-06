@@ -145,9 +145,9 @@ func (px *Paxos) sendPrepare(seq int, n string, v interface{}) (bool, string, in
 
 	for i, acceptor := range px.peers {
 		if i == px.me {
-			px.processPrepare(&args, &reply)
+			px.ProcessPrepare(&args, &reply)
 		} else {
-			call(acceptor, "Paxos.processPrepare", &args, &reply)
+			call(acceptor, "Paxos.ProcessPrepare", &args, &reply)
 		}
 		if reply.Result == OK {
 			if reply.Number > number {
@@ -168,9 +168,9 @@ func (px *Paxos) sendAccept(seq int, n string, v interface{}) bool {
 	reply := PaxosReply{Result: REJECT}
 	for i, acceptor := range px.peers {
 		if i == px.me {
-			px.processAccept(&args, &reply)
+			px.ProcessAccept(&args, &reply)
 		} else {
-			call(acceptor, "Paxos.processAccept", &args, &reply)
+			call(acceptor, "Paxos.ProcessAccept", &args, &reply)
 		}
 		if reply.Result == OK {
 			okCnt++
@@ -187,9 +187,9 @@ func (px *Paxos) sendDecision(seq int, n string, v interface{}) {
 			args := PaxosArgs{Seq: seq, Number: n, Value: v}
 			reply := PaxosReply{}
 			if i != px.me {
-				px.processDecision(&args, &reply)
+				px.ProcessDecision(&args, &reply)
 			} else {
-				call(acceptor, "Paxos.processDecision", &args, &reply)
+				call(acceptor, "Paxos.ProcessDecision", &args, &reply)
 			}
 		}(i, acceptor)
 	}
@@ -210,7 +210,7 @@ func (px *Paxos) propose(seq int, v interface{}) {
 }
 
 // Paxos Algorithm - Acceptor
-func (px *Paxos) processPrepare(args *PaxosArgs, reply *PaxosReply) error {
+func (px *Paxos) ProcessPrepare(args *PaxosArgs, reply *PaxosReply) error {
 	px.mu.Lock()
 	defer px.mu.Unlock()
 
@@ -237,7 +237,7 @@ func (px *Paxos) processPrepare(args *PaxosArgs, reply *PaxosReply) error {
 	return nil
 }
 
-func (px *Paxos) processAccept(args *PaxosArgs, reply *PaxosReply) error {
+func (px *Paxos) ProcessAccept(args *PaxosArgs, reply *PaxosReply) error {
 	px.mu.Lock()
 	defer px.mu.Unlock()
 
@@ -260,7 +260,7 @@ func (px *Paxos) processAccept(args *PaxosArgs, reply *PaxosReply) error {
 	return nil
 }
 
-func (px *Paxos) processDecision(args *PaxosArgs, reply *PaxosReply) error {
+func (px *Paxos) ProcessDecision(args *PaxosArgs, reply *PaxosReply) error {
 	px.mu.Lock()
 	defer px.mu.Unlock()
 
@@ -283,14 +283,10 @@ func (px *Paxos) processDecision(args *PaxosArgs, reply *PaxosReply) error {
 //
 func (px *Paxos) Start(seq int, v interface{}) {
 	// Your code here.
-	px.mu.Lock()
-	defer px.mu.Unlock()
-
-	if (seq < px.Min()) {
-		return
-	}
-
 	go func() {
+		if (seq < px.Min()) {
+			return
+		}
 		px.propose(seq, v)
 	}()
 }
