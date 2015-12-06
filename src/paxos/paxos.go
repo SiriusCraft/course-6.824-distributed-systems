@@ -94,7 +94,18 @@ func (px *Paxos) MakePaxosInstance(seq int, v interface{}) {
 	px.instances[seq] = &PaxosInstance{
 		number: INITIAL_NUMBER,
 		acceptedNumber: INITIAL_NUMBER, 
-		value: v}
+		value: v,
+		decided: false}
+}
+
+func (px *Paxos) MakeDecision(seq int, n string, v interface{}) {
+	_, exists := px.instances[seq];
+	if !exists {
+		px.MakePaxosInstance(seq, nil)
+	}
+	px.instances[seq].acceptedNumber = n
+	px.instances[seq].value = v
+	px.instances[seq].decided = true
 }
 
 //
@@ -145,9 +156,9 @@ func (px *Paxos) sendPrepare(seq int, n string, v interface{}) (bool, interface{
 	value := v
 	okCnt := 0
 	args := PaxosArgs{Seq: seq, Number: n}
-	reply := PaxosReply{Result: REJECT}
-
+	
 	for i, acceptor := range px.peers {
+		reply := PaxosReply{Result: REJECT}
 		if i == px.me {
 			px.ProcessPrepare(&args, &reply)
 		} else {
@@ -186,7 +197,7 @@ func (px *Paxos) sendAccept(seq int, n string, v interface{}) bool {
 }
 
 func (px *Paxos) sendDecision(seq int, n string, v interface{}) {
-	px.instances[seq].decided = true
+	px.MakeDecision(seq, n, v)
 	for i, acceptor := range px.peers {
 		go func(i int, acceptor string) {
 			args := PaxosArgs{Seq: seq, Number: n, Value: v, Done: px.dones[px.me], Me: px.me}
@@ -200,6 +211,10 @@ func (px *Paxos) sendDecision(seq int, n string, v interface{}) {
 
 func (px *Paxos) propose(seq int, v interface{}) {
 	for {
+		instance, exist := px.instances[seq]
+		if exist && instance.decided == true {
+			break
+		}
 		n := px.generateProposalNumber()
 		ok, value := px.sendPrepare(seq, n, v)
 		if ok {
@@ -226,7 +241,7 @@ func (px *Paxos) ProcessPrepare(args *PaxosArgs, reply *PaxosReply) error {
 		px.MakePaxosInstance(seq, nil)
 		reply.Result = OK
 	} else {
-		if (px.instances[seq].number < number) {
+		if (number > px.instances[seq].number) {
 			reply.Result = OK
 		}
 	}
@@ -255,9 +270,9 @@ func (px *Paxos) ProcessAccept(args *PaxosArgs, reply *PaxosReply) error {
 	}
 
 	if number >= px.instances[seq].number {
+		px.instances[seq].number = number
 		px.instances[seq].acceptedNumber = number
 		px.instances[seq].value = value
-		px.instances[seq].number = number
 		reply.Result = OK
 	}
 
@@ -272,14 +287,7 @@ func (px *Paxos) ProcessDecision(args *PaxosArgs, reply *PaxosReply) error {
 	number := args.Number
 	value := args.Value
 
-	_, exist := px.instances[seq]
-	if !exist {
-		px.MakePaxosInstance(seq, nil)
-	}
-	
-	px.instances[seq].acceptedNumber = number
-	px.instances[seq].value = value
-	px.instances[seq].decided = true
+	px.MakeDecision(seq, number, value)
 
 	px.dones[args.Me] = args.Done
 
@@ -372,7 +380,7 @@ func (px *Paxos) Min() int {
 	}
 
 	for seq, _ := range px.instances {
-		if seq <= minSeq && !px.instances[seq].decided {
+		if seq <= minSeq && px.instances[seq].decided {
 			delete(px.instances, seq)
 		}
 	}
