@@ -309,7 +309,12 @@ func (px *Paxos) Start(seq int, v interface{}) {
 // see the comments for Min() for more explanation.
 //
 func (px *Paxos) Done(seq int) {
-	// Your code here.
+	px.mu.Lock()
+	defer px.mu.Unlock()
+
+	if px.dones[px.me] < seq {
+		px.dones[px.me] = seq
+	}
 }
 
 //
