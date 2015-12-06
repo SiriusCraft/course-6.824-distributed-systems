@@ -140,7 +140,7 @@ func (px *Paxos) generateProposalNumber() string {
 	return strconv.FormatInt(duration.Nanoseconds(), 10) + "-" + strconv.Itoa(px.me)
 }
 
-func (px *Paxos) sendPrepare(seq int, n string, v interface{}) (bool, string, interface{}) {
+func (px *Paxos) sendPrepare(seq int, n string, v interface{}) (bool, interface{}) {
 	number := INITIAL_NUMBER
 	value := v
 	okCnt := 0
@@ -163,7 +163,7 @@ func (px *Paxos) sendPrepare(seq int, n string, v interface{}) (bool, string, in
 	}
 
 	ok := okCnt > len(px.peers) / 2
-	return ok, number, value
+	return ok, value
 }
 
 func (px *Paxos) sendAccept(seq int, n string, v interface{}) bool {
@@ -201,13 +201,12 @@ func (px *Paxos) sendDecision(seq int, n string, v interface{}) {
 func (px *Paxos) propose(seq int, v interface{}) {
 	for {
 		n := px.generateProposalNumber()
-		ok, number, value := px.sendPrepare(seq, n, v)
+		ok, value := px.sendPrepare(seq, n, v)
 		if ok {
-			ok = px.sendAccept(seq, number, value)
+			ok = px.sendAccept(seq, n, value)
 		}
 		if ok {
-			fmt.Printf("Sending Decision ...")
-			px.sendDecision(seq, number, value)
+			px.sendDecision(seq, n, value)
 			break
 		}
 	}
@@ -255,8 +254,6 @@ func (px *Paxos) ProcessAccept(args *PaxosArgs, reply *PaxosReply) error {
 		px.MakePaxosInstance(seq, nil)
 	}
 
-	fmt.Printf("number1 : " + px.instances[seq].number + "\n")
-	fmt.Printf("number2 : " + number + "\n")
 	if number >= px.instances[seq].number {
 		px.instances[seq].acceptedNumber = number
 		px.instances[seq].value = value
