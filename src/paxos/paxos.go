@@ -372,7 +372,7 @@ func (px *Paxos) Min() int {
 	}
 
 	for seq, _ := range px.instances {
-		if seq <= minSeq {
+		if seq <= minSeq && !px.instances[seq].decided {
 			delete(px.instances, seq)
 		}
 	}
