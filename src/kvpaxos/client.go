@@ -10,7 +10,7 @@ import "fmt"
 type Clerk struct {
 	servers []string
 	// You will have to modify this struct.
-
+	me string
 }
 
 func nrand() int64 {
@@ -24,6 +24,7 @@ func MakeClerk(servers []string) *Clerk {
 	ck := new(Clerk)
 	ck.servers = servers
 	// You'll have to add code here.
+	ck.me = strconv.FormatInt(nrand(), 10)
 	return ck
 }
 
@@ -88,7 +89,8 @@ func (ck *Clerk) Get(key string) string {
 //
 func (ck *Clerk) PutAppend(key string, value string, op string) {
 	// You will have to modify this function.
-	args := PutAppendArgs{Key: key, Value: value, Op: op}
+	uid := strconv.FormatInt(nrand(), 10)
+	args := PutAppendArgs{Key: key, Value: value, Op: op, Me: ck.me, Uid: uid}
 	var reploy PutAppendReply
 	for {
 		for server := range ck.servers {
