@@ -80,6 +80,7 @@ func (kv *KVPaxos) Wait(seq int, expectedOp Op) bool {
       		} else {
       			return false
       		}
+      		kv.px.Done(seq)
     	}
 	    time.Sleep(to)
 	    if to < 10 * time.Second {
