@@ -70,7 +70,8 @@ func call(srv string, rpcname string,
 //
 func (ck *Clerk) Get(key string) string {
 	// You will have to modify this function.
-	args := GetArgs{Key: key}
+	uid := strconv.FormatInt(nrand(), 10)
+	args := GetArgs{Key: key, Me: ck.me, Uid: uid}
 	var reply GetReply
 	for {
 		for _, server := range ck.servers {
