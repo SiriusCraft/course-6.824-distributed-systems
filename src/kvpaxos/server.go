@@ -51,6 +51,7 @@ type KVPaxos struct {
 
 	// Your definitions here.
 	client     map[string]string
+	reply 	   map[string]string
 	seq		   int
 	content	   map[string]string
 }
@@ -67,6 +68,7 @@ func (kv *KVPaxos) Wait(seq int, expectedOp Op) bool {
 	for {
 		status, op := kv.px.Status(seq)
     	if status == paxos.Decided {
+    		kv.client[op.(Op).Client] = op.(Op).Uid
     		if (op.(Op).Type == PutOp) {
     			kv.content[op.(Op).Key] = op.(Op).Value
     		} else if (op.(Op).Type == AppendOp) {
@@ -90,6 +92,26 @@ func (kv *KVPaxos) Wait(seq int, expectedOp Op) bool {
 
 func (kv *KVPaxos) Get(args *GetArgs, reply *GetReply) error {
 	// Your code here.
+	kv.mu.Lock()
+	defer kv.mu.Lock()
+
+	key := args.Key
+	client, uid := args.Me, args.Uid
+	if kv.client[client] == uid {
+		reply.Value = kv.reply[client]
+		return nil
+	}
+	paxosOp := Op {Type: GetOp, Key: key, Client: client, Uid: uid}
+	for {
+		kv.seq = kv.seq + 1
+		kv.px.Start(kv.seq, paxosOp)
+		if kv.Wait(kv.seq, paxosOp) {
+			kv.reply[client] = kv.content[key]
+			break
+		}
+	}
+
+	reply.Value = kv.reply[client]
 	return nil
 }
 
@@ -163,6 +185,7 @@ func StartServer(servers []string, me int) *KVPaxos {
 
 	// Your initialization code here.
 	kv.client = make(map[string]string)
+	kv.reply = make(map[string]string)
 	kv.seq = -1
 	kv.content = make(map[string]string)
 
