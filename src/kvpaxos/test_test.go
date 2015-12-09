@@ -114,7 +114,7 @@ func TestBasic(t *testing.T) {
 	time.Sleep(1 * time.Second)
 }
 
-func TestDone(t *testing.T) {
+func XTestDone(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	const nservers = 3
@@ -224,7 +224,7 @@ func part(t *testing.T, tag string, npaxos int, p1 []int, p2 []int, p3 []int) {
 	}
 }
 
-func TestPartition(t *testing.T) {
+func XTestPartition(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	tag := "partition"
@@ -361,7 +361,7 @@ func checkAppends(t *testing.T, v string, counts []int) {
 	}
 }
 
-func TestUnreliable(t *testing.T) {
+func XTestUnreliable(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	const nservers = 3
@@ -516,7 +516,7 @@ func TestUnreliable(t *testing.T) {
 	time.Sleep(1 * time.Second)
 }
 
-func TestHole(t *testing.T) {
+func XTestHole(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	fmt.Printf("Test: Tolerates holes in paxos sequence ...\n")
@@ -607,7 +607,7 @@ func TestHole(t *testing.T) {
 	fmt.Printf("  ... Passed\n")
 }
 
-func TestManyPartition(t *testing.T) {
+func XTestManyPartition(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	fmt.Printf("Test: Many clients, changing partitions ...\n")
