@@ -4,6 +4,7 @@ import "net/rpc"
 import "crypto/rand"
 import "math/big"
 import "time"
+import "strconv"
 
 import "fmt"
 
@@ -72,13 +73,13 @@ func (ck *Clerk) Get(key string) string {
 	args := GetArgs{Key: key}
 	var reply GetReply
 	for {
-		for server := range ck.servers {
+		for _, server := range ck.servers {
 			ok := call(server, "KVPaxos.Get", &args, &reply)
 			if ok {
 				return reply.Value
 			}
 		}
-		time.Sleep(kvpaxos.PingInterval)
+		time.Sleep(PingInterval)
 	}
 
 	return "???"
@@ -91,15 +92,15 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 	// You will have to modify this function.
 	uid := strconv.FormatInt(nrand(), 10)
 	args := PutAppendArgs{Key: key, Value: value, Op: op, Me: ck.me, Uid: uid}
-	var reploy PutAppendReply
+	var reply PutAppendReply
 	for {
-		for server := range ck.servers {
-			ok := call(, "KVPaxos.PutAppend", &args, &reply)
+		for _, server := range ck.servers {
+			ok := call(server, "KVPaxos.PutAppend", &args, &reply)
 			if ok {
 				return
 			}
 		}
-		time.Sleep(kvpaxos.PingInterval)
+		time.Sleep(PingInterval)
 	}
 }
 

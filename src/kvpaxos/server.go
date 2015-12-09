@@ -11,6 +11,7 @@ import "os"
 import "syscall"
 import "encoding/gob"
 import "math/rand"
+import "time"
 
 
 const Debug = 0
@@ -54,15 +55,15 @@ type KVPaxos struct {
 	content	   map[string]string
 }
 
-func (kv *KVPaxos) Wait(seq int, Op expectedOp) bool {
+func (kv *KVPaxos) Wait(seq int, expectedOp Op) bool {
 	to := 10 * time.Millisecond
 	for {
 		status, op := kv.px.Status(seq)
     	if status == paxos.Decided {
-    		if (op.Type == PutOp) {
-    			kv.content[op.Key] = op.Value
-    		} else if (op.Type == AppendOp) {
-    			kv.content[op.Key] += op.Value
+    		if (op.(Op).Type == PutOp) {
+    			kv.content[op.(Op).Key] = op.(Op).Value
+    		} else if (op.(Op).Type == AppendOp) {
+    			kv.content[op.(Op).Key] += op.(Op).Value
     		}
     		
       		if (op == expectedOp) {
@@ -87,18 +88,19 @@ func (kv *KVPaxos) Get(args *GetArgs, reply *GetReply) error {
 
 func (kv *KVPaxos) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
 	// Your code here.
-	pb.mu.Lock()
-	defer pb.mu.Unlock()
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
 
 	key, value, op := args.Key, args.Value, args.Op
 	client, uid := args.Me, args.Uid
-	if pb.client[client] == uid {
+	if kv.client[client] == uid {
 		return nil
 	}
+	var paxosOp Op
 	if op == "PutOp" {
-		paxosOp := Op{Type: PutOp, Key: key, Value: value, Client: client, Uid: uid}
+		paxosOp = Op{Type: PutOp, Key: key, Value: value, Client: client, Uid: uid}
 	} else {
-		paxosOp := Op{Type: AppendOp, Key: key, Value: value, Client: client, Uid: uid}
+		paxosOp = Op{Type: AppendOp, Key: key, Value: value, Client: client, Uid: uid}
 	}
 	for {
 		kv.seq = kv.seq + 1

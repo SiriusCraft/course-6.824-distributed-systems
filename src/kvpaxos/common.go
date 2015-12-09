@@ -1,5 +1,7 @@
 package kvpaxos
 
+import "time"
+
 const (
 	OK       = "OK"
 	ErrNoKey = "ErrNoKey"
