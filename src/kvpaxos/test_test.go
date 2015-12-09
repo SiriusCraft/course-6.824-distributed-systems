@@ -41,7 +41,7 @@ func NextValue(prev string, val string) string {
 	return prev + val
 }
 
-func TestBasic(t *testing.T) {
+func XTestBasic(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	const nservers = 3
@@ -114,7 +114,7 @@ func TestBasic(t *testing.T) {
 	time.Sleep(1 * time.Second)
 }
 
-func TestDone(t *testing.T) {
+func XTestDone(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	const nservers = 3
@@ -224,7 +224,7 @@ func part(t *testing.T, tag string, npaxos int, p1 []int, p2 []int, p3 []int) {
 	}
 }
 
-func TestPartition(t *testing.T) {
+func XTestPartition(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	tag := "partition"
@@ -361,7 +361,7 @@ func checkAppends(t *testing.T, v string, counts []int) {
 	}
 }
 
-func XTestUnreliable(t *testing.T) {
+func TestUnreliable(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	const nservers = 3
@@ -417,7 +417,7 @@ func XTestUnreliable(t *testing.T) {
 				vv = NextValue(vv, "2")
 				time.Sleep(100 * time.Millisecond)
 				if myck.Get(key) != vv {
-					t.Fatalf("wrong value")
+					t.Fatalf("%s wrong value", vv)
 				}
 				if myck.Get(key) != vv {
 					t.Fatalf("wrong value")
