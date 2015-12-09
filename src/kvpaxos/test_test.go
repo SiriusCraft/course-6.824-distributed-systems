@@ -224,7 +224,7 @@ func part(t *testing.T, tag string, npaxos int, p1 []int, p2 []int, p3 []int) {
 	}
 }
 
-func XTestPartition(t *testing.T) {
+func TestPartition(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	tag := "partition"
