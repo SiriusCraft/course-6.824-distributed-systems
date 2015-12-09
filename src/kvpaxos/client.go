@@ -9,24 +9,24 @@ import "strconv"
 import "fmt"
 
 type Clerk struct {
-	servers []string
-	// You will have to modify this struct.
-	me string
+    servers []string
+    // You will have to modify this struct.
+    me string
 }
 
 func nrand() int64 {
-	max := big.NewInt(int64(1) << 62)
-	bigx, _ := rand.Int(rand.Reader, max)
-	x := bigx.Int64()
-	return x
+    max := big.NewInt(int64(1) << 62)
+    bigx, _ := rand.Int(rand.Reader, max)
+    x := bigx.Int64()
+    return x
 }
 
 func MakeClerk(servers []string) *Clerk {
-	ck := new(Clerk)
-	ck.servers = servers
-	// You'll have to add code here.
-	ck.me = strconv.FormatInt(nrand(), 10)
-	return ck
+    ck := new(Clerk)
+    ck.servers = servers
+    // You'll have to add code here.
+    ck.me = strconv.FormatInt(nrand(), 10)
+    return ck
 }
 
 //
@@ -47,20 +47,20 @@ func MakeClerk(servers []string) *Clerk {
 // please don't change this function.
 //
 func call(srv string, rpcname string,
-	args interface{}, reply interface{}) bool {
-	c, errx := rpc.Dial("unix", srv)
-	if errx != nil {
-		return false
-	}
-	defer c.Close()
+    args interface{}, reply interface{}) bool {
+    c, errx := rpc.Dial("unix", srv)
+    if errx != nil {
+        return false
+    }
+    defer c.Close()
 
-	err := c.Call(rpcname, args, reply)
-	if err == nil {
-		return true
-	}
+    err := c.Call(rpcname, args, reply)
+    if err == nil {
+        return true
+    }
 
-	fmt.Println(err)
-	return false
+    fmt.Println(err)
+    return false
 }
 
 //
@@ -69,45 +69,45 @@ func call(srv string, rpcname string,
 // keeps trying forever in the face of all other errors.
 //
 func (ck *Clerk) Get(key string) string {
-	// You will have to modify this function.
-	uid := strconv.FormatInt(nrand(), 10)
-	args := GetArgs{Key: key, Me: ck.me, Uid: uid}
-	var reply GetReply
-	for {
-		for _, server := range ck.servers {
-			ok := call(server, "KVPaxos.Get", &args, &reply)
-			if ok {
-				return reply.Value
-			}
-		}
-		time.Sleep(PingInterval)
-	}
+    // You will have to modify this function.
+    uid := strconv.FormatInt(nrand(), 10)
+    args := GetArgs{Key: key, Me: ck.me, Uid: uid}
+    var reply GetReply
+    for {
+        for _, server := range ck.servers {
+            ok := call(server, "KVPaxos.Get", &args, &reply)
+            if ok {
+                return reply.Value
+            }
+        }
+        time.Sleep(PingInterval)
+    }
 
-	return "???"
+    return "???"
 }
 
 //
 // shared by Put and Append.
 //
 func (ck *Clerk) PutAppend(key string, value string, op string) {
-	// You will have to modify this function.
-	uid := strconv.FormatInt(nrand(), 10)
-	args := PutAppendArgs{Key: key, Value: value, Op: op, Me: ck.me, Uid: uid}
-	var reply PutAppendReply
-	for {
-		for _, server := range ck.servers {
-			ok := call(server, "KVPaxos.PutAppend", &args, &reply)
-			if ok {
-				return
-			}
-		}
-		time.Sleep(PingInterval)
-	}
+    // You will have to modify this function.
+    uid := strconv.FormatInt(nrand(), 10)
+    args := PutAppendArgs{Key: key, Value: value, Op: op, Me: ck.me, Uid: uid}
+    var reply PutAppendReply
+    for {
+        for _, server := range ck.servers {
+            ok := call(server, "KVPaxos.PutAppend", &args, &reply)
+            if ok {
+                return
+            }
+        }
+        time.Sleep(PingInterval)
+    }
 }
 
 func (ck *Clerk) Put(key string, value string) {
-	ck.PutAppend(key, value, "Put")
+    ck.PutAppend(key, value, "Put")
 }
 func (ck *Clerk) Append(key string, value string) {
-	ck.PutAppend(key, value, "Append")
+    ck.PutAppend(key, value, "Append")
 }
