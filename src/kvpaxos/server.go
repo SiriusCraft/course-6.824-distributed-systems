@@ -22,11 +22,22 @@ func DPrintf(format string, a ...interface{}) (n int, err error) {
 	return
 }
 
+const (
+	GetOp = 1
+	PutOp = 2
+	AppendOp = 3
+)
+
 
 type Op struct {
 	// Your definitions here.
 	// Field names must start with capital letters,
 	// otherwise RPC will break.
+	Type int
+	Key string
+	Value string
+	Client string
+	Uid string
 }
 
 type KVPaxos struct {
@@ -38,6 +49,34 @@ type KVPaxos struct {
 	px         *paxos.Paxos
 
 	// Your definitions here.
+	client     map[string]string
+	seq		   int
+	content	   map[string]string
+}
+
+func (kv *KVPaxos) Wait(seq int, Op expectedOp) bool {
+	to := 10 * time.Millisecond
+	for {
+		status, op := kv.px.Status(seq)
+    	if status == paxos.Decided {
+    		if (op.Type == PutOp) {
+    			kv.content[op.Key] = op.Value
+    		} else if (op.Type == AppendOp) {
+    			kv.content[op.Key] += op.Value
+    		}
+    		
+      		if (op == expectedOp) {
+      			return true
+      		} else {
+      			return false
+      		}
+    	}
+	    time.Sleep(to)
+	    if to < 10 * time.Second {
+	      to *= 2
+	    }
+	}
+	return false
 }
 
 
@@ -48,6 +87,22 @@ func (kv *KVPaxos) Get(args *GetArgs, reply *GetReply) error {
 
 func (kv *KVPaxos) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
 	// Your code here.
+	pb.mu.Lock()
+	defer pb.mu.Unlock()
+
+	key, value, op := args.Key, args.Value, args.Op
+	client, uid := args.Me, args.Uid
+	if pb.client[client] == uid {
+		return nil
+	}
+	paxosOp = Op{Type: PutAppendOp, Key: key, Value: value, Client: client, Uid: uid}
+	for {
+		kv.seq = kv.seq + 1
+		kv.px.Start(kv.seq, paxosOp)
+		if kv.Wait(kv.seq, paxosOp) {
+			break
+		}
+	}
 
 	return nil
 }
@@ -94,6 +149,9 @@ func StartServer(servers []string, me int) *KVPaxos {
 	kv.me = me
 
 	// Your initialization code here.
+	kv.client = make(map[string]string)
+	kv.seq = -1
+	kv.content = make(map[string]string)
 
 	rpcs := rpc.NewServer()
 	rpcs.Register(kv)
