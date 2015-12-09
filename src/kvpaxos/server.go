@@ -55,6 +55,13 @@ type KVPaxos struct {
 	content	   map[string]string
 }
 
+func isSameOp(op1 Op, op2 Op) bool {
+	if op1.Client == op2.Client && op1.Uid == op2.Uid {
+		return true
+	}
+	return false
+}
+
 func (kv *KVPaxos) Wait(seq int, expectedOp Op) bool {
 	to := 10 * time.Millisecond
 	for {
@@ -66,7 +73,7 @@ func (kv *KVPaxos) Wait(seq int, expectedOp Op) bool {
     			kv.content[op.(Op).Key] += op.(Op).Value
     		}
     		
-      		if (op == expectedOp) {
+      		if (isSameOp(op.(Op), expectedOp)) {
       			return true
       		} else {
       			return false
