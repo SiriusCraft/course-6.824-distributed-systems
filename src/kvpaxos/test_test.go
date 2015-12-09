@@ -114,7 +114,7 @@ func TestBasic(t *testing.T) {
 	time.Sleep(1 * time.Second)
 }
 
-func XTestDone(t *testing.T) {
+func TestDone(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	const nservers = 3

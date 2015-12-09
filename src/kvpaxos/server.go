@@ -77,12 +77,12 @@ func (kv *KVPaxos) Wait(seq int, expectedOp Op) bool {
     			kv.reply[op.(Op).Client] = kv.content[op.(Op).Key]
     		}
     		
+    		kv.px.Done(seq)
       		if (isSameOp(op.(Op), expectedOp)) {
       			return true
       		} else {
       			return false
       		}
-      		kv.px.Done(seq)
     	}
 	    time.Sleep(to)
 	    if to < 10 * time.Second {
