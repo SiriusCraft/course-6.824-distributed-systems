@@ -67,7 +67,7 @@ func (kv *KVPaxos) Wait(seq int, expectedOp Op) bool {
 	to := 10 * time.Millisecond
 	for {
 		status, op := kv.px.Status(seq)
-    	if status == paxos.Decided {
+		if status == paxos.Decided {
     		kv.client[op.(Op).Client] = op.(Op).Uid
     		if (op.(Op).Type == PutOp) {
     			kv.content[op.(Op).Key] = op.(Op).Value
@@ -94,7 +94,7 @@ func (kv *KVPaxos) Wait(seq int, expectedOp Op) bool {
 func (kv *KVPaxos) Get(args *GetArgs, reply *GetReply) error {
 	// Your code here.
 	kv.mu.Lock()
-	defer kv.mu.Lock()
+	defer kv.mu.Unlock()
 
 	key := args.Key
 	client, uid := args.Me, args.Uid
