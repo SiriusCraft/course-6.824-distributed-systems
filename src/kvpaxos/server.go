@@ -95,7 +95,11 @@ func (kv *KVPaxos) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
 	if pb.client[client] == uid {
 		return nil
 	}
-	paxosOp = Op{Type: PutAppendOp, Key: key, Value: value, Client: client, Uid: uid}
+	if op == "PutOp" {
+		paxosOp := Op{Type: PutOp, Key: key, Value: value, Client: client, Uid: uid}
+	} else {
+		paxosOp := Op{Type: AppendOp, Key: key, Value: value, Client: client, Uid: uid}
+	}
 	for {
 		kv.seq = kv.seq + 1
 		kv.px.Start(kv.seq, paxosOp)
