@@ -102,7 +102,7 @@ func (kv *KVPaxos) Get(args *GetArgs, reply *GetReply) error {
 	client, uid := args.Me, args.Uid
 	if kv.client[client] == uid {
 		reply.Value = kv.reply[client]
-		fmt.Printf("uid = %s reply = %s\n", uid, reply.Value)
+		// fmt.Printf("uid = %s reply = %s\n", uid, reply.Value)
 		return nil
 	}
 	paxosOp := Op {Type: GetOp, Key: key, Client: client, Uid: uid}
@@ -116,7 +116,7 @@ func (kv *KVPaxos) Get(args *GetArgs, reply *GetReply) error {
 	}
 
 	reply.Value = kv.reply[client]
-	fmt.Printf("uid = %s reply = %s\n", uid, reply.Value)
+	// fmt.Printf("uid = %s reply = %s\n", uid, reply.Value)
 	return nil
 }
 
@@ -131,7 +131,7 @@ func (kv *KVPaxos) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
 		return nil
 	}
 	var paxosOp Op
-	if op == "PutOp" {
+	if op == "Put" {
 		paxosOp = Op{Type: PutOp, Key: key, Value: value, Client: client, Uid: uid}
 	} else {
 		paxosOp = Op{Type: AppendOp, Key: key, Value: value, Client: client, Uid: uid}
