@@ -3,12 +3,14 @@ package kvpaxos
 import "net/rpc"
 import "crypto/rand"
 import "math/big"
+import "time"
 
 import "fmt"
 
 type Clerk struct {
 	servers []string
 	// You will have to modify this struct.
+
 }
 
 func nrand() int64 {
@@ -66,7 +68,19 @@ func call(srv string, rpcname string,
 //
 func (ck *Clerk) Get(key string) string {
 	// You will have to modify this function.
-	return ""
+	args := GetArgs{Key: key}
+	var reply GetReply
+	for {
+		for server := range ck.servers {
+			ok := call(server, "KVPaxos.Get", &args, &reply)
+			if ok {
+				return reply.Value
+			}
+		}
+		time.Sleep(kvpaxos.PingInterval)
+	}
+
+	return "???"
 }
 
 //
@@ -74,6 +88,17 @@ func (ck *Clerk) Get(key string) string {
 //
 func (ck *Clerk) PutAppend(key string, value string, op string) {
 	// You will have to modify this function.
+	args := PutAppendArgs{Key: key, Value: value, Op: op}
+	var reploy PutAppendReply
+	for {
+		for server := range ck.servers {
+			ok := call(, "KVPaxos.PutAppend", &args, &reply)
+			if ok {
+				return
+			}
+		}
+		time.Sleep(kvpaxos.PingInterval)
+	}
 }
 
 func (ck *Clerk) Put(key string, value string) {

@@ -5,6 +5,8 @@ const (
 	ErrNoKey = "ErrNoKey"
 )
 
+const PingInterval = time.Millisecond * 100
+
 type Err string
 
 // Put or Append
@@ -16,6 +18,7 @@ type PutAppendArgs struct {
 	// You'll have to add definitions here.
 	// Field names must start with capital letters,
 	// otherwise RPC will break.
+
 }
 
 type PutAppendReply struct {
