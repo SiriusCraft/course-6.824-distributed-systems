@@ -71,10 +71,10 @@ func call(srv string, rpcname string,
 func (ck *Clerk) Get(key string) string {
     // You will have to modify this function.
     uid := strconv.FormatInt(nrand(), 10)
-    args := GetArgs{Key: key, Me: ck.me, Uid: uid}
     var reply GetReply
     for {
         for _, server := range ck.servers {
+            args := GetArgs{Key: key, Me: ck.me, Uid: uid}
             ok := call(server, "KVPaxos.Get", &args, &reply)
             if ok {
                 return reply.Value
@@ -94,8 +94,8 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
     uid := strconv.FormatInt(nrand(), 10)
     var reply PutAppendReply
     for {
-        args := PutAppendArgs{Key: key, Value: value, Op: op, Me: ck.me, Uid: uid}
         for _, server := range ck.servers {
+            args := PutAppendArgs{Key: key, Value: value, Op: op, Me: ck.me, Uid: uid}
             ok := call(server, "KVPaxos.PutAppend", &args, &reply)
             if ok {
                 return
