@@ -79,11 +79,10 @@ func (ck *Clerk) Get(key string) string {
             if ok {
                 return reply.Value
             }
+            time.Sleep(PingInterval)
         }
-        time.Sleep(PingInterval)
     }
-
-    return "???"
+    return reply.Value
 }
 
 //
@@ -96,13 +95,12 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
     var reply PutAppendReply
     for {
         for _, server := range ck.servers {
-            fmt.Printf("client = %s, uid = %s, server = %s\n, key = %s, value = %s, op = %s\n", ck.me, uid, server, key, value, op)
             ok := call(server, "KVPaxos.PutAppend", &args, &reply)
             if ok {
                 return
             }
+            time.Sleep(PingInterval)
         }
-        time.Sleep(PingInterval)
     }
 }
 
