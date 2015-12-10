@@ -7,7 +7,7 @@ const (
     ErrNoKey = "ErrNoKey"
 )
 
-const PingInterval = time.Millisecond * 10
+const PingInterval = time.Millisecond * 1000
 
 type Err string
 

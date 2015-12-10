@@ -361,7 +361,7 @@ func checkAppends(t *testing.T, v string, counts []int) {
 	}
 }
 
-func TestUnreliable(t *testing.T) {
+func XTestUnreliable(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	const nservers = 3
@@ -608,7 +608,7 @@ func XTestHole(t *testing.T) {
 	fmt.Printf("  ... Passed\n")
 }
 
-func XTestManyPartition(t *testing.T) {
+func TestManyPartition(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	fmt.Printf("Test: Many clients, changing partitions ...\n")

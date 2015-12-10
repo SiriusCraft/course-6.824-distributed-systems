@@ -73,8 +73,6 @@ func (kv *KVPaxos) Wait(seq int, expectedOp Op) bool {
                 kv.content[op.(Op).Key] = op.(Op).Value
             } else if (op.(Op).Type == AppendOp) {
                 kv.content[op.(Op).Key] += op.(Op).Value
-                fmt.Printf("client = %s, uid = %s\n, seq = %d\n, seen = %s\n", op.(Op).Client, op.(Op).Uid, seq, kv.client[op.(Op).Client])
-                fmt.Printf("me = %d, key = %s, value = %s\n", kv.me, op.(Op).Key, kv.content[op.(Op).Key])
             } else {
                 kv.client[op.(Op).Client + "-" + op.(Op).Uid] = kv.content[op.(Op).Key]
             }
@@ -105,7 +103,6 @@ func (kv *KVPaxos) Get(args *GetArgs, reply *GetReply) error {
     replied_value, exists := kv.client[client + "-" + uid]
     if exists {
         reply.Value = replied_value
-        fmt.Printf("me = %d, uid = %s, reply = %s\n", kv.me, uid, reply.Value)
         return nil
     }
     paxosOp := Op {Type: GetOp, Key: key, Client: client, Uid: uid}
@@ -118,8 +115,6 @@ func (kv *KVPaxos) Get(args *GetArgs, reply *GetReply) error {
     }
 
     reply.Value = kv.client[client + "-" + uid]
-    fmt.Printf("me = %d, uid = %s, reply = %s\n", kv.me, uid, reply.Value)
-    // fmt.Printf("uid = %s reply = %s\n", uid, reply.Value)
     return nil
 }
 

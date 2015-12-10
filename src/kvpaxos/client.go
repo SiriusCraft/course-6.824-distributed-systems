@@ -95,7 +95,6 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
     var reply PutAppendReply
     for {
         args := PutAppendArgs{Key: key, Value: value, Op: op, Me: ck.me, Uid: uid}
-        fmt.Printf("client: client = %s, key = %s, value = %s, op = %s\n", ck.me, key, value, op)
         for _, server := range ck.servers {
             ok := call(server, "KVPaxos.PutAppend", &args, &reply)
             if ok {
