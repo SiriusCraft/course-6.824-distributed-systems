@@ -361,7 +361,7 @@ func checkAppends(t *testing.T, v string, counts []int) {
 	}
 }
 
-func TestUnreliable(t *testing.T) {
+func XTestUnreliable(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	const nservers = 3
@@ -516,7 +516,7 @@ func TestUnreliable(t *testing.T) {
 	time.Sleep(1 * time.Second)
 }
 
-func XTestHole(t *testing.T) {
+func TestHole(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	fmt.Printf("Test: Tolerates holes in paxos sequence ...\n")
