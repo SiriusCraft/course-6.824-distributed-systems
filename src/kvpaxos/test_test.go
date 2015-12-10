@@ -361,7 +361,98 @@ func checkAppends(t *testing.T, v string, counts []int) {
 	}
 }
 
-func XTestUnreliable(t *testing.T) {
+func XTestHole(t *testing.T) {
+	runtime.GOMAXPROCS(4)
+
+	fmt.Printf("Test: Tolerates holes in paxos sequence ...\n")
+
+	tag := "hole"
+	const nservers = 5
+	var kva []*KVPaxos = make([]*KVPaxos, nservers)
+	defer cleanup(kva)
+	defer cleanpp(tag, nservers)
+
+	for i := 0; i < nservers; i++ {
+		var kvh []string = make([]string, nservers)
+		for j := 0; j < nservers; j++ {
+			if j == i {
+				kvh[j] = port(tag, i)
+			} else {
+				kvh[j] = pp(tag, i, j)
+			}
+		}
+		kva[i] = StartServer(kvh, i)
+	}
+	defer part(t, tag, nservers, []int{}, []int{}, []int{})
+
+	for iters := 0; iters < 5; iters++ {
+		part(t, tag, nservers, []int{0, 1, 2, 3, 4}, []int{}, []int{})
+
+		ck2 := MakeClerk([]string{port(tag, 2)})
+		ck2.Put("q", "q")
+
+		done := int32(0)
+		const nclients = 10
+		var ca [nclients]chan bool
+		for xcli := 0; xcli < nclients; xcli++ {
+			ca[xcli] = make(chan bool)
+			go func(cli int) {
+				ok := false
+				defer func() { ca[cli] <- ok }()
+				var cka [nservers]*Clerk
+				for i := 0; i < nservers; i++ {
+					cka[i] = MakeClerk([]string{port(tag, i)})
+				}
+				key := strconv.Itoa(cli)
+				last := ""
+				cka[0].Put(key, last)
+				for atomic.LoadInt32(&done) == 0 {
+					ci := (rand.Int() % 2)
+					if (rand.Int() % 1000) < 500 {
+						nv := strconv.Itoa(rand.Int())
+						cka[ci].Put(key, nv)
+						last = nv
+					} else {
+						v := cka[ci].Get(key)
+						if v != last {
+							t.Fatalf("%v: wrong value, key %v, wanted %v, got %v",
+								cli, key, last, v)
+						}
+					}
+				}
+				ok = true
+			}(xcli)
+		}
+
+		time.Sleep(3 * time.Second)
+
+		part(t, tag, nservers, []int{2, 3, 4}, []int{0, 1}, []int{})
+
+		// can majority partition make progress even though
+		// minority servers were interrupted in the middle of
+		// paxos agreements?
+		check(t, ck2, "q", "q")
+		ck2.Put("q", "qq")
+		check(t, ck2, "q", "qq")
+
+		// restore network, wait for all threads to exit.
+		part(t, tag, nservers, []int{0, 1, 2, 3, 4}, []int{}, []int{})
+		atomic.StoreInt32(&done, 1)
+		ok := true
+		for i := 0; i < nclients; i++ {
+			z := <-ca[i]
+			ok = ok && z
+		}
+		if ok == false {
+			t.Fatal("something is wrong")
+		}
+		check(t, ck2, "q", "qq")
+	}
+
+	fmt.Printf("  ... Passed\n")
+}
+
+func TestUnreliable(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	const nservers = 3
@@ -517,98 +608,7 @@ func XTestUnreliable(t *testing.T) {
 	time.Sleep(1 * time.Second)
 }
 
-func XTestHole(t *testing.T) {
-	runtime.GOMAXPROCS(4)
-
-	fmt.Printf("Test: Tolerates holes in paxos sequence ...\n")
-
-	tag := "hole"
-	const nservers = 5
-	var kva []*KVPaxos = make([]*KVPaxos, nservers)
-	defer cleanup(kva)
-	defer cleanpp(tag, nservers)
-
-	for i := 0; i < nservers; i++ {
-		var kvh []string = make([]string, nservers)
-		for j := 0; j < nservers; j++ {
-			if j == i {
-				kvh[j] = port(tag, i)
-			} else {
-				kvh[j] = pp(tag, i, j)
-			}
-		}
-		kva[i] = StartServer(kvh, i)
-	}
-	defer part(t, tag, nservers, []int{}, []int{}, []int{})
-
-	for iters := 0; iters < 5; iters++ {
-		part(t, tag, nservers, []int{0, 1, 2, 3, 4}, []int{}, []int{})
-
-		ck2 := MakeClerk([]string{port(tag, 2)})
-		ck2.Put("q", "q")
-
-		done := int32(0)
-		const nclients = 10
-		var ca [nclients]chan bool
-		for xcli := 0; xcli < nclients; xcli++ {
-			ca[xcli] = make(chan bool)
-			go func(cli int) {
-				ok := false
-				defer func() { ca[cli] <- ok }()
-				var cka [nservers]*Clerk
-				for i := 0; i < nservers; i++ {
-					cka[i] = MakeClerk([]string{port(tag, i)})
-				}
-				key := strconv.Itoa(cli)
-				last := ""
-				cka[0].Put(key, last)
-				for atomic.LoadInt32(&done) == 0 {
-					ci := (rand.Int() % 2)
-					if (rand.Int() % 1000) < 500 {
-						nv := strconv.Itoa(rand.Int())
-						cka[ci].Put(key, nv)
-						last = nv
-					} else {
-						v := cka[ci].Get(key)
-						if v != last {
-							t.Fatalf("%v: wrong value, key %v, wanted %v, got %v",
-								cli, key, last, v)
-						}
-					}
-				}
-				ok = true
-			}(xcli)
-		}
-
-		time.Sleep(3 * time.Second)
-
-		part(t, tag, nservers, []int{2, 3, 4}, []int{0, 1}, []int{})
-
-		// can majority partition make progress even though
-		// minority servers were interrupted in the middle of
-		// paxos agreements?
-		check(t, ck2, "q", "q")
-		ck2.Put("q", "qq")
-		check(t, ck2, "q", "qq")
-
-		// restore network, wait for all threads to exit.
-		part(t, tag, nservers, []int{0, 1, 2, 3, 4}, []int{}, []int{})
-		atomic.StoreInt32(&done, 1)
-		ok := true
-		for i := 0; i < nclients; i++ {
-			z := <-ca[i]
-			ok = ok && z
-		}
-		if ok == false {
-			t.Fatal("something is wrong")
-		}
-		check(t, ck2, "q", "qq")
-	}
-
-	fmt.Printf("  ... Passed\n")
-}
-
-func TestManyPartition(t *testing.T) {
+func XTestManyPartition(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	fmt.Printf("Test: Many clients, changing partitions ...\n")

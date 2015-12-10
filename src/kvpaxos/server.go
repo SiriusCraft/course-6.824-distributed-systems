@@ -52,12 +52,13 @@ type KVPaxos struct {
     // Your definitions here.
     client     map[string]string
     reply      map[string]string
+    seen       map[string]bool
     seq        int
     content    map[string]string
 }
 
 func isSameOp(op1 Op, op2 Op) bool {
-    if op1.Client == op2.Client && op1.Uid == op2.Uid {
+    if op1.Uid == op2.Uid {
         return true
     }
     return false
@@ -68,13 +69,16 @@ func (kv *KVPaxos) Wait(seq int, expectedOp Op) bool {
     for {
         status, op := kv.px.Status(seq)
         if status == paxos.Decided {
-            kv.client[op.(Op).Client + "-" + op.(Op).Uid] = ""
+            kv.client[op.(Op).Client] = op.(Op).Uid
+            kv.seen[op.(Op).Uid] = true
             if (op.(Op).Type == PutOp) {
                 kv.content[op.(Op).Key] = op.(Op).Value
             } else if (op.(Op).Type == AppendOp) {
                 kv.content[op.(Op).Key] += op.(Op).Value
+                fmt.Printf("seq = %d, server = %d, client = %s, uid = %s, key = %s, value = %s\n, new_value = %s\n", seq, kv.me, op.(Op).Client, 
+                    op.(Op).Uid, op.(Op).Key, op.(Op).Value, kv.content[op.(Op).Key])
             } else {
-                kv.client[op.(Op).Client + "-" + op.(Op).Uid] = kv.content[op.(Op).Key]
+                kv.reply[op.(Op).Client] = kv.content[op.(Op).Key]
             }
             
             kv.px.Done(seq)
@@ -86,7 +90,7 @@ func (kv *KVPaxos) Wait(seq int, expectedOp Op) bool {
         }
         time.Sleep(to)
         if to < 10 * time.Second {
-          to *= 2
+            to *= 2
         }
     }
     return false
@@ -100,21 +104,23 @@ func (kv *KVPaxos) Get(args *GetArgs, reply *GetReply) error {
 
     key := args.Key
     client, uid := args.Me, args.Uid
-    replied_value, exists := kv.client[client + "-" + uid]
-    if exists {
-        reply.Value = replied_value
-        return nil
-    }
     paxosOp := Op {Type: GetOp, Key: key, Client: client, Uid: uid}
     for {
+        if kv.client[client] == uid {
+            reply.Value = kv.reply[client]
+            return nil
+        }
         kv.seq = kv.seq + 1
-        kv.px.Start(kv.seq, paxosOp)
+        status, _ := kv.px.Status(kv.seq)
+        if status == paxos.Pending {
+            kv.px.Start(kv.seq, paxosOp)
+        }
         if kv.Wait(kv.seq, paxosOp) {
             break
         }
     }
 
-    reply.Value = kv.client[client + "-" + uid]
+    reply.Value = kv.reply[client]
     return nil
 }
 
@@ -125,10 +131,7 @@ func (kv *KVPaxos) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
 
     key, value, op := args.Key, args.Value, args.Op
     client, uid := args.Me, args.Uid
-    _, exists := kv.client[client + "-" + uid]
-    if exists {
-        return nil
-    }
+    fmt.Printf("Get Args: server = %d, uid = %s\n", kv.me, uid)
     var paxosOp Op
     if op == "Put" {
         paxosOp = Op{Type: PutOp, Key: key, Value: value, Client: client, Uid: uid}
@@ -136,8 +139,16 @@ func (kv *KVPaxos) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
         paxosOp = Op{Type: AppendOp, Key: key, Value: value, Client: client, Uid: uid}
     }
     for {
+        _, exists := kv.seen[uid]
+        if exists {
+            return nil
+        }
         kv.seq = kv.seq + 1
-        kv.px.Start(kv.seq, paxosOp)
+        status, _ := kv.px.Status(kv.seq)
+        if status == paxos.Pending {
+            fmt.Printf("Start: server = %d, seq = %d, uid = %s\n", kv.me, kv.seq, uid)
+            kv.px.Start(kv.seq, paxosOp)
+        }
         if kv.Wait(kv.seq, paxosOp) {
             break
         }
@@ -189,6 +200,8 @@ func StartServer(servers []string, me int) *KVPaxos {
 
     // Your initialization code here.
     kv.client = make(map[string]string)
+    kv.reply = make(map[string]string)
+    kv.seen = make(map[string]bool)
     kv.seq = -1
     kv.content = make(map[string]string)
 
@@ -215,7 +228,7 @@ func StartServer(servers []string, me int) *KVPaxos {
                 if kv.isunreliable() && (rand.Int63()%1000) < 100 {
                     // discard the request.
                     conn.Close()
-                } else if kv.isunreliable() && (rand.Int63()%1000) < 200 {
+                } else if kv.isunreliable() && (rand.Int63()%1000) < 500 {
                     // process the request but force discard of reply.
                     c1 := conn.(*net.UnixConn)
                     f, _ := c1.File()
