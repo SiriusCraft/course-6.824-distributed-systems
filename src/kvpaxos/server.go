@@ -68,13 +68,15 @@ func (kv *KVPaxos) Wait(seq int, expectedOp Op) bool {
     for {
         status, op := kv.px.Status(seq)
         if status == paxos.Decided {
-            kv.client[op.(Op).Client] = op.(Op).Uid
+            kv.client[op.(Op).Client + "-" + op.(Op).Uid] = ""
             if (op.(Op).Type == PutOp) {
                 kv.content[op.(Op).Key] = op.(Op).Value
             } else if (op.(Op).Type == AppendOp) {
                 kv.content[op.(Op).Key] += op.(Op).Value
+                fmt.Printf("client = %s, uid = %s\n, seq = %d\n, seen = %s\n", op.(Op).Client, op.(Op).Uid, seq, kv.client[op.(Op).Client])
+                fmt.Printf("me = %d, key = %s, value = %s\n", kv.me, op.(Op).Key, kv.content[op.(Op).Key])
             } else {
-                kv.reply[op.(Op).Client] = kv.content[op.(Op).Key]
+                kv.client[op.(Op).Client + "-" + op.(Op).Uid] = kv.content[op.(Op).Key]
             }
             
             kv.px.Done(seq)
@@ -100,9 +102,10 @@ func (kv *KVPaxos) Get(args *GetArgs, reply *GetReply) error {
 
     key := args.Key
     client, uid := args.Me, args.Uid
-    if kv.client[client] == uid {
-        reply.Value = kv.reply[client]
-        // fmt.Printf("uid = %s reply = %s\n", uid, reply.Value)
+    replied_value, exists := kv.client[client + "-" + uid]
+    if exists {
+        reply.Value = replied_value
+        fmt.Printf("me = %d, uid = %s, reply = %s\n", kv.me, uid, reply.Value)
         return nil
     }
     paxosOp := Op {Type: GetOp, Key: key, Client: client, Uid: uid}
@@ -110,12 +113,12 @@ func (kv *KVPaxos) Get(args *GetArgs, reply *GetReply) error {
         kv.seq = kv.seq + 1
         kv.px.Start(kv.seq, paxosOp)
         if kv.Wait(kv.seq, paxosOp) {
-            kv.reply[client] = kv.content[key]
             break
         }
     }
 
-    reply.Value = kv.reply[client]
+    reply.Value = kv.client[client + "-" + uid]
+    fmt.Printf("me = %d, uid = %s, reply = %s\n", kv.me, uid, reply.Value)
     // fmt.Printf("uid = %s reply = %s\n", uid, reply.Value)
     return nil
 }
@@ -127,7 +130,8 @@ func (kv *KVPaxos) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
 
     key, value, op := args.Key, args.Value, args.Op
     client, uid := args.Me, args.Uid
-    if kv.client[client] == uid {
+    _, exists := kv.client[client + "-" + uid]
+    if exists {
         return nil
     }
     var paxosOp Op
@@ -190,7 +194,6 @@ func StartServer(servers []string, me int) *KVPaxos {
 
     // Your initialization code here.
     kv.client = make(map[string]string)
-    kv.reply = make(map[string]string)
     kv.seq = -1
     kv.content = make(map[string]string)
 

@@ -361,7 +361,7 @@ func checkAppends(t *testing.T, v string, counts []int) {
 	}
 }
 
-func XTestUnreliable(t *testing.T) {
+func TestUnreliable(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	const nservers = 3
@@ -416,8 +416,9 @@ func XTestUnreliable(t *testing.T) {
 				myck.Append(key, "2")
 				vv = NextValue(vv, "2")
 				time.Sleep(100 * time.Millisecond)
-				if myck.Get(key) != vv {
-					t.Fatalf("%s wrong value", vv)
+				sss := myck.Get(key)
+				if sss != vv {
+					t.Fatalf("key = %s, get = %s, expected = %s, wrong value", key, sss, vv)
 				}
 				if myck.Get(key) != vv {
 					t.Fatalf("wrong value")
@@ -516,7 +517,7 @@ func XTestUnreliable(t *testing.T) {
 	time.Sleep(1 * time.Second)
 }
 
-func TestHole(t *testing.T) {
+func XTestHole(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
 	fmt.Printf("Test: Tolerates holes in paxos sequence ...\n")

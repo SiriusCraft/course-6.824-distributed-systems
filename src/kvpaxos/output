@@ -1,0 +1,14 @@
+Test: Basic put/get, unreliable ...
+client: client = 2645602180987225765, key = a, value = aa, op = Put
+unexpected EOF
+unexpected EOF
+unexpected EOF
+write unix ->/var/tmp/824-501/kv-31031-un-2: write: broken pipe
+unexpected EOF
+me = 0, uid = 3567802170386990903, reply = 
+reply=()
+--- FAIL: TestUnreliable (0.03s)
+	test_test.go:16: Get(a) -> , expected aa
+FAIL
+exit status 1
+FAIL	kvpaxos	0.040s
