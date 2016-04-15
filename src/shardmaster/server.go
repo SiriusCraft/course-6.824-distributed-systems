@@ -75,7 +75,10 @@ func getMinAndMaxGID(config *Config) (int64, int64) {
 		if gid == 0 {
 			return 0, 0
 		}
-		counts[gid]++
+		_, exists := config.Groups[gid]
+		if exists {
+			counts[gid]++
+		}
 	}
 
 	for gid, count := range counts {
@@ -101,22 +104,22 @@ func getShardByGID(config *Config, gid int64) int {
 	return -1
 }
 
-func (sm* ShardMaster) rebalance(gid int64, isLeave bool) {
+func (sm* ShardMaster) rebalance(gid int64, isJoin bool) {
 	config := &sm.configs[sm.configNum]
 	for i := 0; ; i++ {
 		minGID, maxGID := getMinAndMaxGID(config)
-		if isLeave {
-			shard := getShardByGID(config, gid) 
-			if shard == -1 {
-				break
-			}
-			config.Shards[shard] = minGID
-		} else {
+		if isJoin {
 			if i == NShards / len(config.Groups) {
 				break
 			}
 			shard := getShardByGID(config, maxGID)
 			config.Shards[shard] = gid
+		} else {
+			shard := getShardByGID(config, gid) 
+			if shard == -1 {
+				break
+			}
+			config.Shards[shard] = minGID
 		}
 	}
 }
@@ -126,16 +129,16 @@ func (sm* ShardMaster) applyJoin(gid int64, servers []string) {
 	_, exists := config.Groups[gid]
 	if !exists {
 		config.Groups[gid] = servers
-		// rebalance
+		sm.rebalance(gid, true)
 	}
 }
 
 func (sm* ShardMaster) applyLeave(gid int64) {
 	config := sm.getNewConfig()
 	_, exists := config.Groups[gid]
-	if !exists {
+	if exists {
 		delete(config.Groups, gid)
-		// rebalance
+		sm.rebalance(gid, false)
 	}
 }
 
@@ -188,10 +191,9 @@ func (sm *ShardMaster) startInstance(instance Op) {
 }
 
 func (sm *ShardMaster) Join(args *JoinArgs, reply *JoinReply) error {
-	fmt.Println("Query")
 	// Your code here.
 	sm.mu.Lock()
-	defer sm.mu.Lock()
+	defer sm.mu.Unlock()
 
 	gid := args.GID
 	servers := args.Servers
@@ -203,10 +205,9 @@ func (sm *ShardMaster) Join(args *JoinArgs, reply *JoinReply) error {
 }
 
 func (sm *ShardMaster) Leave(args *LeaveArgs, reply *LeaveReply) error {
-	fmt.Println("Query")
 	// Your code here.
 	sm.mu.Lock()
-	defer sm.mu.Lock()
+	defer sm.mu.Unlock()
 
 	gid := args.GID
 	
@@ -217,10 +218,9 @@ func (sm *ShardMaster) Leave(args *LeaveArgs, reply *LeaveReply) error {
 }
 
 func (sm *ShardMaster) Move(args *MoveArgs, reply *MoveReply) error {
-	fmt.Println("Query")
 	// Your code here.
 	sm.mu.Lock()
-	defer sm.mu.Lock()
+	defer sm.mu.Unlock()
 
 	gid := args.GID
 	shard := args.Shard
@@ -232,10 +232,9 @@ func (sm *ShardMaster) Move(args *MoveArgs, reply *MoveReply) error {
 }
 
 func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) error {
-	fmt.Println("Query")
 	// Your code here.
 	sm.mu.Lock()
-	defer sm.mu.Lock()
+	defer sm.mu.Unlock()
 
 	confignum := args.Num
 	
@@ -247,7 +246,7 @@ func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) error {
 	} else {
 		reply.Config = sm.configs[confignum]
 	}
-	
+
 	return nil
 }
 
