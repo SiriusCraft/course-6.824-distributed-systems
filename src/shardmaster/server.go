@@ -22,34 +22,119 @@ type ShardMaster struct {
 	px         *paxos.Paxos
 
 	configs []Config // indexed by config num
+	seq int // paxos seq
+	configNum // current config num
 }
 
+const (
+	JOIN 1
+	LEAVE 2
+	MOVE 3
+	QUERY 4
+)
 
 type Op struct {
 	// Your data here.
+	Type int
+	GID int
+	Servers []string
+	Shard int
+	ConfigNum int
 }
 
+func (kv *KVPaxos) waitForAgreement(seq int, expectedOp Op) bool {
+    to := 10 * time.Millisecond
+    for {
+        status, instance := kv.px.Status(seq)
+        if status == paxos.Decided {
+            op := instance.(Op)
+
+            if op.Type == JOIN {
+            } else if (op.Type == LEAVE) {
+            } else if (op.Type == MOVE) {
+           	}
+            
+            kv.px.Done(seq)
+            if (isSameOp(op, expectedOp)) {
+                return true
+            } else {
+                return false
+            }
+        }
+        time.Sleep(to)
+        if to < 10 * time.Second {
+          to *= 2
+        }
+    }
+    return false
+}
+
+func (sm *ShardMaster) startInstance(instance interface{}) {
+	for {
+		sm.seq = sm.seq + 1
+		sm.px.Start(sm.seq, instance)
+		if sm.waitForAgreement(sm.seq, instance) {
+			break
+		}
+	}
+}
 
 func (sm *ShardMaster) Join(args *JoinArgs, reply *JoinReply) error {
 	// Your code here.
+	sm.mu.Lock()
+	defer sm.mu.Lock()
+
+	gid := args.GID
+	servers := args.Servers
+
+	instance := Op{Type: JOIN, GID: gid, Servers: servers}
+	startInstance(instance)
 
 	return nil
 }
 
 func (sm *ShardMaster) Leave(args *LeaveArgs, reply *LeaveReply) error {
 	// Your code here.
+	sm.mu.Lock()
+	defer sm.mu.Lock()
+
+	gid := args.GID
+	
+	instance := Op{Type: LEAVE, GID: gid}
+	startInstance(instance)
 
 	return nil
 }
 
 func (sm *ShardMaster) Move(args *MoveArgs, reply *MoveReply) error {
 	// Your code here.
+	sm.mu.Lock()
+	defer sm.mu.Lock()
+
+	gid := args.GID
+	shard := args.Shard
+	
+	instance := Op{Type: MOVE, GID: gid, Shard: shard}
+	startInstance(instance)
 
 	return nil
 }
 
 func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) error {
 	// Your code here.
+	sm.mu.Lock()
+	defer sm.mu.Lock()
+
+	confignum := args.Num
+	
+	instance := Op{Type: QUERY, ConfigNum: confignum}
+	startInstance(instance)
+
+	if confignum == -1 || confignum > sm.configNum {
+		reply.Config = sm.configs[sm.configNum]
+	} else {
+		reply.Config = sm.configs[confignum]
+	}
 
 	return nil
 }
@@ -104,6 +189,10 @@ func StartServer(servers []string, me int) *ShardMaster {
 		log.Fatal("listen error: ", e)
 	}
 	sm.l = l
+
+
+	sm.seq = -1
+	sm.configNum = 0
 
 	// please do not change any of the following code,
 	// or do anything to subvert it.
