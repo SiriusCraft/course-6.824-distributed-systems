@@ -70,12 +70,12 @@ func call(srv string, rpcname string,
 //
 func (ck *Clerk) Get(key string) string {
     // You will have to modify this function.
-    uid := strconv.FormatInt(nrand(), 10)
-    args := GetArgs{Key: key, Me: ck.me, Uid: uid}
+    uuid := strconv.FormatInt(nrand(), 10)
+    args := GetArgs{Key: key, Me: ck.me, UUid: uuid}
     var reply GetReply
     for {
         for _, server := range ck.servers {
-            ok := call(server, "KVPaxos.Get", &args, &reply)
+            ok := call(server, "KVPaxos.Get", args, &reply)
             if ok {
                 return reply.Value
             }
@@ -90,12 +90,12 @@ func (ck *Clerk) Get(key string) string {
 //
 func (ck *Clerk) PutAppend(key string, value string, op string) {
     // You will have to modify this function.
-    uid := strconv.FormatInt(nrand(), 10)
-    args := PutAppendArgs{Key: key, Value: value, Op: op, Me: ck.me, Uid: uid}
+    uuid := strconv.FormatInt(nrand(), 10)
+    args := PutAppendArgs{Key: key, Value: value, Op: op, Me: ck.me, UUid: uuid}
     var reply PutAppendReply
     for {
         for _, server := range ck.servers {
-            ok := call(server, "KVPaxos.PutAppend", &args, &reply)
+            ok := call(server, "KVPaxos.PutAppend", args, &reply)
             if ok {
                 return
             }

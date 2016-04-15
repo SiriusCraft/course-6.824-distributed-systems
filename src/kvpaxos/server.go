@@ -38,7 +38,7 @@ type Op struct {
     Key string
     Value string
     Client string
-    Uid string
+    UUid string
 }
 
 type KVPaxos struct {
@@ -57,28 +57,29 @@ type KVPaxos struct {
 }
 
 func isSameOp(op1 Op, op2 Op) bool {
-    if op1.Client == op2.Client && op1.Uid == op2.Uid {
+    if op1.Client == op2.Client && op1.UUid == op2.UUid {
         return true
     }
     return false
 }
 
-func (kv *KVPaxos) Wait(seq int, expectedOp Op) bool {
+func (kv *KVPaxos) waitForAgreement(seq int, expectedOp Op) bool {
     to := 10 * time.Millisecond
     for {
-        status, op := kv.px.Status(seq)
+        status, instance := kv.px.Status(seq)
         if status == paxos.Decided {
-            kv.client[op.(Op).Client + "-" + op.(Op).Uid] = ""
-            if (op.(Op).Type == PutOp) {
-                kv.content[op.(Op).Key] = op.(Op).Value
-            } else if (op.(Op).Type == AppendOp) {
-                kv.content[op.(Op).Key] += op.(Op).Value
+            op := instance.(Op)
+            kv.client[op.Client] = op.UUid
+            if (op.Type == PutOp) {
+                kv.content[op.Key] = op.Value
+            } else if (op.Type == AppendOp) {
+                kv.content[op.Key] += op.Value
             } else {
-                kv.client[op.(Op).Client + "-" + op.(Op).Uid] = kv.content[op.(Op).Key]
+                kv.reply[op.Client] = kv.content[op.Key]
             }
             
             kv.px.Done(seq)
-            if (isSameOp(op.(Op), expectedOp)) {
+            if (isSameOp(op, expectedOp)) {
                 return true
             } else {
                 return false
@@ -99,22 +100,23 @@ func (kv *KVPaxos) Get(args *GetArgs, reply *GetReply) error {
     defer kv.mu.Unlock()
 
     key := args.Key
-    client, uid := args.Me, args.Uid
-    replied_value, exists := kv.client[client + "-" + uid]
-    if exists {
-        reply.Value = replied_value
+    client, uuid := args.Me, args.UUid
+    lastUUid, exists := kv.client[client]
+    if exists && lastUUid == uuid {
+        reply.Value = kv.reply[client]
         return nil
     }
-    paxosOp := Op {Type: GetOp, Key: key, Client: client, Uid: uid}
+
+    paxosOp := Op {Type: GetOp, Key: key, Client: client, UUid: uuid}
     for {
         kv.seq = kv.seq + 1
         kv.px.Start(kv.seq, paxosOp)
-        if kv.Wait(kv.seq, paxosOp) {
+        if kv.waitForAgreement(kv.seq, paxosOp) {
             break
         }
     }
 
-    reply.Value = kv.client[client + "-" + uid]
+    reply.Value = kv.reply[client]
     return nil
 }
 
@@ -124,21 +126,22 @@ func (kv *KVPaxos) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
     defer kv.mu.Unlock()
 
     key, value, op := args.Key, args.Value, args.Op
-    client, uid := args.Me, args.Uid
-    _, exists := kv.client[client + "-" + uid]
-    if exists {
+    client, uuid := args.Me, args.UUid
+    lastUUid, exists := kv.client[client]
+    if exists && uuid == lastUUid {
         return nil
     }
-    var paxosOp Op
+
+    var instance Op
     if op == "Put" {
-        paxosOp = Op{Type: PutOp, Key: key, Value: value, Client: client, Uid: uid}
+        instance = Op{Type: PutOp, Key: key, Value: value, Client: client, UUid: uuid}
     } else {
-        paxosOp = Op{Type: AppendOp, Key: key, Value: value, Client: client, Uid: uid}
+        instance = Op{Type: AppendOp, Key: key, Value: value, Client: client, UUid: uuid}
     }
     for {
         kv.seq = kv.seq + 1
-        kv.px.Start(kv.seq, paxosOp)
-        if kv.Wait(kv.seq, paxosOp) {
+        kv.px.Start(kv.seq, instance)
+        if kv.waitForAgreement(kv.seq, instance) {
             break
         }
     }
@@ -189,6 +192,7 @@ func StartServer(servers []string, me int) *KVPaxos {
 
     // Your initialization code here.
     kv.client = make(map[string]string)
+    kv.reply = make(map[string]string)
     kv.seq = -1
     kv.content = make(map[string]string)
 
