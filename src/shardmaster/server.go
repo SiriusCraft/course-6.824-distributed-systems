@@ -12,6 +12,7 @@ import "os"
 import "syscall"
 import "encoding/gob"
 import "math/rand"
+import "time"
 
 type ShardMaster struct {
 	mu         sync.Mutex
@@ -23,39 +24,145 @@ type ShardMaster struct {
 
 	configs []Config // indexed by config num
 	seq int // paxos seq
-	configNum // current config num
+	configNum int// current config num
 }
 
 const (
-	JOIN 1
-	LEAVE 2
-	MOVE 3
-	QUERY 4
+	JOIN = 1
+	LEAVE = 2
+	MOVE = 3
+	QUERY = 4
 )
 
 type Op struct {
 	// Your data here.
 	Type int
-	GID int
+	GID int64
 	Servers []string
 	Shard int
 	ConfigNum int
+	UUID int64
 }
 
-func (kv *KVPaxos) waitForAgreement(seq int, expectedOp Op) bool {
+func (sm* ShardMaster) getNewConfig() *Config {
+	oldConfig := &sm.configs[sm.configNum]
+
+	// copy old config
+	var newConfig Config
+	newConfig.Num = oldConfig.Num + 1
+	newConfig.Groups = map[int64][]string{}
+	for gid, servers := range oldConfig.Groups {
+		newConfig.Groups[gid] = servers
+	}
+	newConfig.Shards = [NShards]int64{}
+	for shard, gid := range oldConfig.Shards {
+		newConfig.Shards[shard] = gid
+	}
+
+	sm.configNum++
+	sm.configs = append(sm.configs, newConfig)
+	return &sm.configs[sm.configNum]
+}
+
+func getMinAndMaxGID(config *Config) (int64, int64) {
+	minGID, minShardNum, maxGID, maxShardNum := int64(0), NShards + 1, int64(0), -1
+	counts := map[int64]int{}
+
+	for gid := range config.Groups {
+		counts[gid] = 0
+	}
+	for _, gid := range config.Shards {
+		if gid == 0 {
+			return 0, 0
+		}
+		counts[gid]++
+	}
+
+	for gid, count := range counts {
+		if minShardNum > count {
+			minGID = gid
+			minShardNum = count
+		}
+		if maxShardNum < count {
+			maxGID = gid
+			maxShardNum = count
+		}
+	}
+
+	return minGID, maxGID
+}
+
+func getShardByGID(config *Config, gid int64) int {
+	for shard, g := range config.Shards {
+		if g == gid {
+			return shard
+		}
+	}
+	return -1
+}
+
+func (sm* ShardMaster) rebalance(gid int64, isLeave bool) {
+	config := &sm.configs[sm.configNum]
+	for i := 0; ; i++ {
+		minGID, maxGID := getMinAndMaxGID(config)
+		if isLeave {
+			shard := getShardByGID(config, gid) 
+			if shard == -1 {
+				break
+			}
+			config.Shards[shard] = minGID
+		} else {
+			if i == NShards / len(config.Groups) {
+				break
+			}
+			shard := getShardByGID(config, maxGID)
+			config.Shards[shard] = gid
+		}
+	}
+}
+
+func (sm* ShardMaster) applyJoin(gid int64, servers []string) {
+	config := sm.getNewConfig()
+	_, exists := config.Groups[gid]
+	if !exists {
+		config.Groups[gid] = servers
+		// rebalance
+	}
+}
+
+func (sm* ShardMaster) applyLeave(gid int64) {
+	config := sm.getNewConfig()
+	_, exists := config.Groups[gid]
+	if !exists {
+		delete(config.Groups, gid)
+		// rebalance
+	}
+}
+
+func (sm* ShardMaster) applyMove(gid int64, shard int) {
+	config := sm.getNewConfig()
+	config.Shards[shard] = gid
+}
+
+func (sm* ShardMaster) waitForAgreement(seq int, expectedOp Op) bool {
     to := 10 * time.Millisecond
     for {
-        status, instance := kv.px.Status(seq)
+        status, instance := sm.px.Status(seq)
         if status == paxos.Decided {
             op := instance.(Op)
+            gid, servers, shard := op.GID, op.Servers, op.Shard
 
-            if op.Type == JOIN {
-            } else if (op.Type == LEAVE) {
-            } else if (op.Type == MOVE) {
+            switch (op.Type) {
+            case JOIN:
+            	sm.applyJoin(gid, servers)
+            case LEAVE:
+            	sm.applyLeave(gid)
+            case MOVE:
+            	sm.applyMove(gid, shard)
            	}
             
-            kv.px.Done(seq)
-            if (isSameOp(op, expectedOp)) {
+            sm.px.Done(seq)
+            if op.UUID == expectedOp.UUID {
                 return true
             } else {
                 return false
@@ -69,7 +176,8 @@ func (kv *KVPaxos) waitForAgreement(seq int, expectedOp Op) bool {
     return false
 }
 
-func (sm *ShardMaster) startInstance(instance interface{}) {
+func (sm *ShardMaster) startInstance(instance Op) {
+	instance.UUID = nrand()
 	for {
 		sm.seq = sm.seq + 1
 		sm.px.Start(sm.seq, instance)
@@ -80,6 +188,7 @@ func (sm *ShardMaster) startInstance(instance interface{}) {
 }
 
 func (sm *ShardMaster) Join(args *JoinArgs, reply *JoinReply) error {
+	fmt.Println("Query")
 	// Your code here.
 	sm.mu.Lock()
 	defer sm.mu.Lock()
@@ -88,12 +197,13 @@ func (sm *ShardMaster) Join(args *JoinArgs, reply *JoinReply) error {
 	servers := args.Servers
 
 	instance := Op{Type: JOIN, GID: gid, Servers: servers}
-	startInstance(instance)
+	sm.startInstance(instance)
 
 	return nil
 }
 
 func (sm *ShardMaster) Leave(args *LeaveArgs, reply *LeaveReply) error {
+	fmt.Println("Query")
 	// Your code here.
 	sm.mu.Lock()
 	defer sm.mu.Lock()
@@ -101,12 +211,13 @@ func (sm *ShardMaster) Leave(args *LeaveArgs, reply *LeaveReply) error {
 	gid := args.GID
 	
 	instance := Op{Type: LEAVE, GID: gid}
-	startInstance(instance)
+	sm.startInstance(instance)
 
 	return nil
 }
 
 func (sm *ShardMaster) Move(args *MoveArgs, reply *MoveReply) error {
+	fmt.Println("Query")
 	// Your code here.
 	sm.mu.Lock()
 	defer sm.mu.Lock()
@@ -115,12 +226,13 @@ func (sm *ShardMaster) Move(args *MoveArgs, reply *MoveReply) error {
 	shard := args.Shard
 	
 	instance := Op{Type: MOVE, GID: gid, Shard: shard}
-	startInstance(instance)
+	sm.startInstance(instance)
 
 	return nil
 }
 
 func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) error {
+	fmt.Println("Query")
 	// Your code here.
 	sm.mu.Lock()
 	defer sm.mu.Lock()
@@ -128,14 +240,14 @@ func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) error {
 	confignum := args.Num
 	
 	instance := Op{Type: QUERY, ConfigNum: confignum}
-	startInstance(instance)
+	sm.startInstance(instance)
 
 	if confignum == -1 || confignum > sm.configNum {
 		reply.Config = sm.configs[sm.configNum]
 	} else {
 		reply.Config = sm.configs[confignum]
 	}
-
+	
 	return nil
 }
 
