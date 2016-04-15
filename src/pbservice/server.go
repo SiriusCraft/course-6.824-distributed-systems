@@ -28,32 +28,39 @@ type PBServer struct {
 	client     map[string]string
 }
 
-func (pb *PBServer) IsPrimary() bool {
+func (pb *PBServer) isPrimary() bool {
 	return pb.view.Primary == pb.me
 }
 
-func (pb *PBServer) IsBackup() bool {
+func (pb *PBServer) isBackup() bool {
 	return pb.view.Backup == pb.me
 }
 
-func (pb *PBServer) ForwardTo(args *ForwardArgs, name string) error {
-	if name == "" {
-		return nil
-	}
+func (pb *PBServer) ForwardToBackup(args *ForwardArgs) error {
 	var reply ForwardReply
-	ok := call(name, "PBServer.FromForward", args, &reply)
-	if !ok {
-		return errors.New("[ForwardTo] failed to forward put")
+	reply.Err = ErrNoReply
+	for i := 0; i < viewservice.DeadPings; i++ {
+		if pb.view.Backup == "" || !pb.isPrimary() {
+			return nil
+		}
+		ok := call(pb.view.Backup, "PBServer.FromForward", args, &reply)
+		if ok {
+			return nil
+		}
+		time.Sleep(viewservice.PingInterval / 5)
 	}
 	return nil
 }
 
 func (pb *PBServer) FromForward(args *ForwardArgs, reply *ForwardReply) error {
 	pb.mu.Lock()
+	defer pb.mu.Unlock()
 
-	if !pb.IsBackup() {
-		pb.mu.Unlock()
-		return errors.New("[FromForward]I am not a backup")
+	if !pb.isBackup() {
+		return errors.New("[FromForward]" + pb.me + " is not a backup")
+	}
+	if pb.view.Primary != args.Me {
+		return errors.New("[FromForward]" + args.Me + " is not a primary")
 	}
 	for key, value := range args.Content {
 		pb.content[key] = value
@@ -61,8 +68,7 @@ func (pb *PBServer) FromForward(args *ForwardArgs, reply *ForwardReply) error {
 	for key, value := range args.Client {
 		pb.client[key] = value
 	}
-
-	pb.mu.Unlock()
+	
 	return nil
 }
 
@@ -70,15 +76,14 @@ func (pb *PBServer) Get(args *GetArgs, reply *GetReply) error {
 
 	// Your code here.
 	pb.mu.Lock()
+	defer pb.mu.Unlock()
 
-	if !pb.IsPrimary() {
+	if !pb.isPrimary() {
 		reply.Err = ErrWrongServer
-		pb.mu.Unlock()
 		return errors.New("[Get]I am not a primary")
 	}
 	reply.Value = pb.content[args.Key]
 
-	pb.mu.Unlock()
 	return nil
 }
 
@@ -86,16 +91,15 @@ func (pb *PBServer) Get(args *GetArgs, reply *GetReply) error {
 func (pb *PBServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
 	// Your code here.
 	pb.mu.Lock()
+	defer pb.mu.Unlock()
 
-	if !pb.IsPrimary() {
+	if !pb.isPrimary() {
 		reply.Err = ErrWrongServer
-		pb.mu.Unlock()
 		return errors.New("[PutAppend]I am not a primary")
 	}
 	key, value, op := args.Key, args.Value, args.Op
-	client, uid := args.Me, args.UID
-	if pb.client[client] == uid {
-		pb.mu.Unlock()
+	client, uuid := args.Me, args.UUID
+	if pb.client[client] == uuid {
 		return nil
 	}
 	if op == "Put" {
@@ -103,15 +107,13 @@ func (pb *PBServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error 
 	} else {
 		pb.content[key] = pb.content[key] + value
 	}
-	pb.client[client] = uid
-	forwardArgs := ForwardArgs{map[string]string{key:pb.content[key]}, map[string]string{client:uid}}
-	err := pb.ForwardTo(&forwardArgs, pb.view.Backup)
+	pb.client[client] = uuid
+	forwardArgs := ForwardArgs{pb.me, map[string]string{key:pb.content[key]}, map[string]string{client:uuid}}
+	err := pb.ForwardToBackup(&forwardArgs)
 	if err != nil {
-		pb.mu.Unlock()
 		return errors.New("[PutAppend]Forward failed")
 	}
 
-	pb.mu.Unlock()
 	return nil
 }
 
@@ -126,16 +128,18 @@ func (pb *PBServer) tick() {
 
 	// Your code here.
 	pb.mu.Lock()
+	defer pb.mu.Unlock()
 
 	view, err := pb.vs.Ping(pb.view.Viewnum)
 	if err == nil {
-		if view.Backup != "" && view.Backup != pb.view.Backup && pb.IsPrimary() {
-			pb.ForwardTo(&ForwardArgs{Content: pb.content, Client: pb.client}, view.Backup)
+		var oldBackup = pb.view.Backup
+		pb.view = view
+		if view.Backup != oldBackup && pb.isPrimary() {
+			pb.ForwardToBackup(&ForwardArgs{Me: pb.me, Content: pb.content, Client: pb.client})
 		}
+	} else {
+		pb.view = view
 	}
-	pb.view = view
-
-	pb.mu.Unlock()
 }
 
 // tell the server to shut itself down.

@@ -63,7 +63,6 @@ type Paxos struct {
 	peers      []string
 	me         int // index into peers[]
 
-
 	// Your data here.
 	instances  map[int]*PaxosInstance
 	dones map[int]int
