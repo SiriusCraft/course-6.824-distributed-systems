@@ -29,16 +29,19 @@ const (
     PutOp = 2
     AppendOp = 3
     ReconfigurationOp = 4
+    SyncOp = 5
 )
 
 type Op struct {
 	// Your definitions here.
-	Type int
-	GID int64
-    Key string
-    Value string
-    Client string
-    Seq int
+	Type       int
+	GID        int64
+    Key         string
+    Value       string
+    Client      string
+    Seq         int
+    Config      shardmaster.Config
+    SyncData    SyncReply
 }
 
 
@@ -99,6 +102,7 @@ func (kv *ShardKV) applyOp(op Op) {
    			kv.replyOfErr[client] = ErrNoKey
    		}
    		kv.replyOfValue[client] = value
+
    	case PutOp:
    		// check if wrong group
 		if (gid != kv.gid) {
@@ -114,6 +118,7 @@ func (kv *ShardKV) applyOp(op Op) {
    		kv.seen[client] = seq
    		kv.replyOfErr[client] = OK
    		kv.replyOfValue[client] = value
+
    	case AppendOp:
    		// check if wrong group
 		if (gid != kv.gid) {
@@ -135,8 +140,30 @@ func (kv *ShardKV) applyOp(op Op) {
    			kv.replyOfErr[client] = ErrNoKey
    		}
    		kv.replyOfValue[client] = value
+
   	case ReconfigurationOp:
-  		return
+  		if kv.config.Num >= op.Config.Num {
+            kv.replyOfErr[client] = OK
+            return
+        }
+
+        // sync data
+        for key := range op.SyncData.Data {
+            kv.data[key] = op.SyncData.Data[key]
+        }
+
+        // sync clients' states
+        for client := range op.SyncData.Seen {
+            seq, exists := kv.seen[client]
+            if !exists || seq < op.SyncData.Seen[client] {
+                kv.seen[client] = kv.seen[client]
+                kv.replyOfErr[client] = op.SyncData.ReplyOfErr[client]
+                kv.replyOfValue[client] = op.SyncData.ReplyOfValue[client]
+            }
+        }
+
+        // update config
+        kv.config = op.Config
    	}
 }
 
@@ -216,8 +243,88 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
 	return nil
 }
 
-func (kv *ShardKV) reConfigure(newConfig shardmaster.Config) {
-    // do something
+func (kv *ShardKV) Sync(args *SyncArgs, reply *SyncReply) error {
+    kv.mu.Lock()
+    defer kv.mu.Unlock()
+
+    if kv.config.Num < args.Config.Num {
+        reply.Err = ErrNotReady
+        return nil
+    }
+
+    // construct SyncOp
+    shard := args.Shard
+    op := Op{Type: SyncOp}
+    reply.Err, _ = kv.startOp(op)
+
+    reply.Data = make(map[string]string)
+    reply.Seen = make(map[string]int)
+    reply.ReplyOfErr = make(map[string]Err)
+    reply.ReplyOfValue = make(map[string]string)
+
+    for key := range kv.data {
+        if key2shard(key) == shard {
+            reply.Data[key] = kv.data[key]
+        }
+    }
+    for client := range kv.seen {
+        reply.Seen[client] = kv.seen[client]
+        reply.ReplyOfErr[client] = kv.replyOfErr[client]
+        reply.ReplyOfValue[client] = kv.replyOfValue[client]
+    }
+
+    return nil
+}
+
+func (reply *SyncReply) merge(otherReply SyncReply) {
+    // merge data
+    for key := range otherReply.Data {
+        reply.Data[key] = otherReply.Data[key]
+    }
+
+    // merge clients' states
+    for client := range otherReply.Seen {
+        seq, exists := reply.Seen[client]
+        if !exists || seq < otherReply.Seen[client] {
+            reply.Seen[client] = otherReply.Seen[client]
+            reply.ReplyOfErr[client] = otherReply.ReplyOfErr[client]
+            reply.ReplyOfValue[client] = otherReply.ReplyOfValue[client]
+        }
+    }
+}
+
+func (kv *ShardKV) reConfigure(newConfig shardmaster.Config) bool {
+    // get all synced data
+    oldConfig := &kv.config
+    syncData := SyncReply{OK, map[string]string{}, map[string]int{},
+        map[string]Err{}, map[string]string{}}
+    for i := 0; i < shardmaster.NShards; i++ {
+        if newConfig.Shards[i] == kv.gid && oldConfig.Shards[i] != kv.gid {
+            args := &SyncArgs{}
+            args.Shard = i
+            args.Config = *oldConfig
+            synced := false
+            var reply SyncReply
+            for _, srv := range oldConfig.Groups[oldConfig.Shards[i]] {
+                ok := call(srv, "ShardKV.", args, &reply)
+                if ok && reply.Err == OK {
+                    synced = true
+                    break
+                }
+            }
+            if (!synced) {
+                return false
+            }
+
+            syncData.merge(reply)
+        }
+    }
+
+    // construct ReconfigurationOp
+    op := Op{Type: ReconfigurationOp, Config: newConfig, SyncData: syncData}
+    kv.startOp(op)
+
+    return true
 }
 
 //
@@ -234,7 +341,9 @@ func (kv *ShardKV) tick() {
     // re-configure one by one in order
     for i := kv.config.Num + 1; i <= latestConfig.Num; i++ {
         newConfig := kv.sm.Query(i)
-        kv.reConfigure(newConfig)
+        if (!kv.reConfigure(newConfig)) {
+            return
+        }
     }
 }
 
