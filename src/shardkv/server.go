@@ -216,12 +216,26 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
 	return nil
 }
 
+func (kv *ShardKV) reConfigure(newConfig shardmaster.Config) {
+    // do something
+}
+
 //
 // Ask the shardmaster if there's a new configuration;
 // if so, re-configure.
 //
 func (kv *ShardKV) tick() {
 	// Your code here.
+    kv.mu.Lock()
+    defer kv.mu.Unlock()
+
+    // get latest config
+    latestConfig := kv.sm.Query(-1)
+    // re-configure one by one in order
+    for i := kv.config.Num + 1; i <= latestConfig.Num; i++ {
+        newConfig := kv.sm.Query(i)
+        kv.reConfigure(newConfig)
+    }
 }
 
 // tell the server to shut itself down.
@@ -270,6 +284,7 @@ func StartServer(gid int64, shardmasters []string,
 
 	// Your initialization code here.
 	// Don't call Join().
+    kv.config = shardmaster.Config{Num:-1}
 	kv.data = make(map[string]string)
 	kv.seen = make(map[string]int)
 	kv.replyOfErr = make(map[string]Err)
