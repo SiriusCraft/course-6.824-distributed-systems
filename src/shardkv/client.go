@@ -29,7 +29,7 @@ func MakeClerk(shardmasters []string) *Clerk {
 	ck := new(Clerk)
 	ck.sm = shardmaster.MakeClerk(shardmasters)
 	// You'll have to modify MakeClerk.
-	ck.seq = -1
+	ck.seq = 0
 	ck.me = strconv.FormatInt(nrand(), 10)
 
 	return ck

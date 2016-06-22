@@ -353,7 +353,7 @@ func TestConcurrent(t *testing.T) {
 	fmt.Printf("  ... Passed\n")
 }
 
-func DIS_TestConcurrentUnreliable(t *testing.T) {
+func TestConcurrentUnreliable(t *testing.T) {
 	fmt.Printf("Test: Concurrent Put/Get/Move (unreliable) ...\n")
 	doConcurrent(t, true)
 	fmt.Printf("  ... Passed\n")

@@ -66,7 +66,7 @@ type ShardKV struct {
 func (kv *ShardKV) checkSeen(op Op) bool {
     seq, client := op.Seq, op.Client
 	lastSeq, seenExists := kv.seen[client]
-    if (seenExists && lastSeq == seq) {
+    if seenExists && lastSeq >= seq {
         return true
     }
     return false
@@ -90,6 +90,10 @@ func (kv *ShardKV) applyOp(op Op) {
 			kv.replyOfErr[client] = ErrWrongGroup
 			return
 		}
+        // check last seen for at-most-once semantic
+        if kv.checkSeen(op) {
+            return
+        }
 
 		// get the value
 		value, exists := kv.data[key]
@@ -111,6 +115,10 @@ func (kv *ShardKV) applyOp(op Op) {
             kv.replyOfErr[client] = ErrWrongGroup
             return
         }
+        // check last seen for at-most-once semantic
+        if kv.checkSeen(op) {
+            return
+        }
 
 		// put the value
    		value, _ := kv.data[key]
@@ -125,6 +133,10 @@ func (kv *ShardKV) applyOp(op Op) {
    		// check if wrong group
         if (kv.config.Shards[key2shard(key)] != kv.gid) {
             kv.replyOfErr[client] = ErrWrongGroup
+            return
+        }
+        // check last seen for at-most-once semantic
+        if kv.checkSeen(op) {
             return
         }
 
@@ -151,7 +163,7 @@ func (kv *ShardKV) applyOp(op Op) {
         for client := range op.SyncData.Seen {
             seq, exists := kv.seen[client]
             if !exists || seq < op.SyncData.Seen[client] {
-                kv.seen[client] = kv.seen[client]
+                kv.seen[client] = op.SyncData.Seen[client]
                 kv.replyOfErr[client] = op.SyncData.ReplyOfErr[client]
                 kv.replyOfValue[client] = op.SyncData.ReplyOfValue[client]
             }
@@ -192,10 +204,6 @@ func (kv *ShardKV) waitUntilAgreement(seq int, expectedOp Op) bool {
 func (kv *ShardKV) startOp(op Op) (Err, string) {
     for {
         kv.seq = kv.seq + 1
-        // check last seen for at-most-once semantic
-        if (kv.checkSeen(op)) {
-        	break
-        }
         
         kv.px.Start(kv.seq, op)
         if kv.waitUntilAgreement(kv.seq, op) {
