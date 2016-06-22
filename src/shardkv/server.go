@@ -65,10 +65,8 @@ type ShardKV struct {
 }
 
 func (kv *ShardKV) checkSeen(op Op) bool {
-	seq, client := op.Seq, op.Client
+    seq, client := op.Seq, op.Client
 	lastSeq, seenExists := kv.seen[client]
-    // DPrintf("%d %d\n", seq, lastSeq)
-    // fmt.Printf("%s %d %d\n", client, seq, lastSeq)
     if (seenExists && lastSeq == seq) {
     	return true
     }
@@ -107,8 +105,7 @@ func (kv *ShardKV) applyOp(op Op) {
 
    	case PutOp:
    		// check if wrong group
-        // fmt.Printf("%d %d\n", gid, kv.gid)
-		if (gid != kv.gid) {
+        if (gid != kv.gid) {
 			kv.replyOfErr[client] = ErrWrongGroup
 			return
 		}

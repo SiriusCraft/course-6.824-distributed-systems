@@ -176,7 +176,7 @@ func TestBasic(t *testing.T) {
 	fmt.Printf("  ... Passed\n")
 }
 
-func TestMove(t *testing.T) {
+func DIS_TestMove(t *testing.T) {
 	tc := setup(t, "move", false)
 	defer tc.cleanup()
 
@@ -234,7 +234,7 @@ func TestMove(t *testing.T) {
 	}
 }
 
-func TestLimp(t *testing.T) {
+func DIS_TestLimp(t *testing.T) {
 	tc := setup(t, "limp", false)
 	defer tc.cleanup()
 
@@ -347,13 +347,13 @@ func doConcurrent(t *testing.T, unreliable bool) {
 	}
 }
 
-func TestConcurrent(t *testing.T) {
+func DIS_TestConcurrent(t *testing.T) {
 	fmt.Printf("Test: Concurrent Put/Get/Move ...\n")
 	doConcurrent(t, false)
 	fmt.Printf("  ... Passed\n")
 }
 
-func TestConcurrentUnreliable(t *testing.T) {
+func DIS_TestConcurrentUnreliable(t *testing.T) {
 	fmt.Printf("Test: Concurrent Put/Get/Move (unreliable) ...\n")
 	doConcurrent(t, true)
 	fmt.Printf("  ... Passed\n")

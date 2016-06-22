@@ -134,6 +134,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 	defer ck.mu.Unlock()
 
 	// You'll have to modify PutAppend().
+	ck.seq = ck.seq + 1
 
 	for {
 		shard := key2shard(key)
@@ -148,6 +149,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 				args := &PutAppendArgs{}
 				args.Key = key
 				args.Value = value
+				args.GID = gid
 				args.Op = op
 				args.Seq = ck.seq
 				args.Me = ck.me
