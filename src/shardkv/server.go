@@ -67,6 +67,8 @@ type ShardKV struct {
 func (kv *ShardKV) checkSeen(op Op) bool {
 	seq, client := op.Seq, op.Client
 	lastSeq, seenExists := kv.seen[client]
+    // DPrintf("%d %d\n", seq, lastSeq)
+    // fmt.Printf("%s %d %d\n", client, seq, lastSeq)
     if (seenExists && lastSeq == seq) {
     	return true
     }
@@ -105,6 +107,7 @@ func (kv *ShardKV) applyOp(op Op) {
 
    	case PutOp:
    		// check if wrong group
+        // fmt.Printf("%d %d\n", gid, kv.gid)
 		if (gid != kv.gid) {
 			kv.replyOfErr[client] = ErrWrongGroup
 			return
@@ -194,12 +197,13 @@ func (kv *ShardKV) waitUntilAgreement(seq int, expectedOp Op) bool {
 }
 
 func (kv *ShardKV) startOp(op Op) (Err, string) {
-	for {
+    for {
         kv.seq = kv.seq + 1
         // check last seen for at-most-once semantic
         if (kv.checkSeen(op)) {
         	break
         }
+        
         kv.px.Start(kv.seq, op)
         if kv.waitUntilAgreement(kv.seq, op) {
             break
