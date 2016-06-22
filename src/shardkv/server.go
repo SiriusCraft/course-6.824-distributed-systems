@@ -34,7 +34,7 @@ const (
 
 type Op struct {
 	// Your definitions here.
-	Type       int
+	Type        int
 	Key         string
     Value       string
     Client      string
@@ -129,18 +129,12 @@ func (kv *ShardKV) applyOp(op Op) {
         }
 
 		// append the value
-   		value, exists := kv.data[key]
-   		if (exists) {
-   			kv.data[key] += op.Value
-   		}
+   		value, _ := kv.data[key]
+   		kv.data[key] += op.Value
 
    		// set the reply
 		kv.seen[client] = seq
-   		if (exists) {
-   			kv.replyOfErr[client] = OK
-   		} else {
-   			kv.replyOfErr[client] = ErrNoKey
-   		}
+   		kv.replyOfErr[client] = OK
    		kv.replyOfValue[client] = value
 
   	case ReconfigurationOp:
@@ -177,11 +171,10 @@ func (kv *ShardKV) waitUntilAgreement(seq int, expectedOp Op) bool {
         if status == paxos.Decided {
             op := instance.(Op)
 
-            // fmt.Printf("%v-%v, Paxos seq : %d\n", kv.gid, kv.me, seq)
             kv.applyOp(op) 
-
-            kv.px.Done(seq)
             
+            kv.px.Done(seq)
+                    
             if (isSameOp(op, expectedOp)) {
                 return true
             } else {
@@ -222,16 +215,17 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) error {
     seq, client, key := args.Seq, args.Me, args.Key
     op := Op{Type: GetOp, Key: key, Client: client, Seq: seq}
     reply.Err, reply.Value = kv.startOp(op)
+    // fmt.Printf("Get: %v-%v data : %v\n", kv.gid, kv.me, kv.data)
 
 	return nil
 }
 
 // RPC handler for client Put and Append requests
 func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
-	// Your code here.
+    // Your code here.
 	kv.mu.Lock()
     defer kv.mu.Unlock()
-    
+
     // construct GetOp
     seq, client, opType := args.Seq, args.Me, args.Op
     key, value := args.Key, args.Value
@@ -241,19 +235,22 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
 	} else {
 		op = Op{Type: AppendOp, Key: key, Value: value, Client: client, Seq: seq}
 	}
-    reply.Err, _ = kv.startOp(op)	
+    // fmt.Printf("Put\n")
+    reply.Err, _ = kv.startOp(op)
+    // fmt.Printf("Put: %v-%v key: %v value: %v\n", kv.gid, kv.me, key, value)	
+    // fmt.Printf("Put: %v-%v reply: %v data : %v\n", kv.gid, kv.me, reply.Err, kv.data)
 
 	return nil
 }
 
 func (kv *ShardKV) Sync(args *SyncArgs, reply *SyncReply) error {
-    kv.mu.Lock()
-    defer kv.mu.Unlock()
-
     if kv.config.Num < args.Config.Num {
         reply.Err = ErrNotReady
         return nil
     }
+
+    kv.mu.Lock()
+    defer kv.mu.Unlock()
 
     // construct SyncOp
     shard := args.Shard

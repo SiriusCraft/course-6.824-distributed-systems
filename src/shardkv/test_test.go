@@ -308,7 +308,7 @@ func doConcurrent(t *testing.T, unreliable bool) {
 	for i := 0; i < len(tc.groups); i++ {
 		tc.join(i)
 	}
-
+	
 	const npara = 11
 	var ca [npara]chan bool
 	for i := 0; i < npara; i++ {
@@ -347,7 +347,7 @@ func doConcurrent(t *testing.T, unreliable bool) {
 	}
 }
 
-func DIS_TestConcurrent(t *testing.T) {
+func TestConcurrent(t *testing.T) {
 	fmt.Printf("Test: Concurrent Put/Get/Move ...\n")
 	doConcurrent(t, false)
 	fmt.Printf("  ... Passed\n")
