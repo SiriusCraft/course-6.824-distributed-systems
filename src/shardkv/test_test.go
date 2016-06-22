@@ -176,7 +176,7 @@ func TestBasic(t *testing.T) {
 	fmt.Printf("  ... Passed\n")
 }
 
-func DIS_TestMove(t *testing.T) {
+func TestMove(t *testing.T) {
 	tc := setup(t, "move", false)
 	defer tc.cleanup()
 
@@ -234,7 +234,7 @@ func DIS_TestMove(t *testing.T) {
 	}
 }
 
-func DIS_TestLimp(t *testing.T) {
+func TestLimp(t *testing.T) {
 	tc := setup(t, "limp", false)
 	defer tc.cleanup()
 

@@ -107,7 +107,6 @@ func (ck *Clerk) Get(key string) string {
 			for _, srv := range servers {
 				args := &GetArgs{}
 				args.Key = key
-				args.GID = gid
 				args.Seq = ck.seq
 				args.Me = ck.me
 				var reply GetReply
@@ -149,7 +148,6 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 				args := &PutAppendArgs{}
 				args.Key = key
 				args.Value = value
-				args.GID = gid
 				args.Op = op
 				args.Seq = ck.seq
 				args.Me = ck.me
