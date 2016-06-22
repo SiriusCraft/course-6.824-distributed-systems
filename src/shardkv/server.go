@@ -84,9 +84,7 @@ func (kv *ShardKV) applyOp(op Op) {
    	switch op.Type {
    	case GetOp:
    		// check if wrong group
-        // fmt.Printf("%v-%v, Config: %v\n", kv.gid, kv.me, kv.config)
-        // fmt.Printf("%v-%v, Get: %d %d\n", kv.gid, kv.me, kv.config.Shards[key2shard(key)], kv.gid)
-		if (kv.config.Shards[key2shard(key)] != kv.gid) {
+        if (kv.config.Shards[key2shard(key)] != kv.gid) {
 			kv.replyOfErr[client] = ErrWrongGroup
 			return
 		}
@@ -109,8 +107,6 @@ func (kv *ShardKV) applyOp(op Op) {
 
    	case PutOp:
    		// check if wrong group
-        // fmt.Printf("%v-%v, Config: %v\n", kv.gid, kv.me, kv.config)
-        // fmt.Printf("%v-%v, Put: %d %d\n", kv.gid, kv.me, kv.config.Shards[key2shard(key)], kv.gid)
         if (kv.config.Shards[key2shard(key)] != kv.gid) {
             kv.replyOfErr[client] = ErrWrongGroup
             return
@@ -170,10 +166,8 @@ func (kv *ShardKV) applyOp(op Op) {
         }
 
         // update config
-        // fmt.Printf("%v-%v, Updated Config: %v...\n", kv.gid, kv.me, kv.config)
         kv.config = op.Config
-        // fmt.Printf("%v-%v, Updated Config: %v...\n", kv.gid, kv.me, kv.config)
-   	}
+    }
 }
 
 func (kv *ShardKV) waitUntilAgreement(seq int, expectedOp Op) bool {
@@ -223,7 +217,6 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) error {
     seq, client, key := args.Seq, args.Me, args.Key
     op := Op{Type: GetOp, Key: key, Client: client, Seq: seq}
     reply.Err, reply.Value = kv.startOp(op)
-    // fmt.Printf("Get: %v-%v data : %v\n", kv.gid, kv.me, kv.data)
 
 	return nil
 }
@@ -243,11 +236,8 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
 	} else {
 		op = Op{Type: AppendOp, Key: key, Value: value, Client: client, Seq: seq}
 	}
-    // fmt.Printf("Put\n")
     reply.Err, _ = kv.startOp(op)
-    // fmt.Printf("Put: %v-%v key: %v value: %v\n", kv.gid, kv.me, key, value)	
-    // fmt.Printf("Put: %v-%v reply: %v data : %v\n", kv.gid, kv.me, reply.Err, kv.data)
-
+    
 	return nil
 }
 
@@ -320,10 +310,8 @@ func (kv *ShardKV) reConfigure(newConfig shardmaster.Config) bool {
                     synced = true
                     break
                 }
-                // fmt.Printf("%v-%v reConfigure: %v\n", kv.gid, kv.me, reply.Err)
             }
             if !synced {
-                // fmt.Printf("%v-%v reconfig failed: %v\n", kv.gid, kv.me, oldConfig.Shards[i])
                 return false
             }
 
@@ -349,10 +337,6 @@ func (kv *ShardKV) tick() {
 
     // get latest config
     latestConfig := kv.sm.Query(-1)
-    if kv.gid == 100 {
-        // fmt.Printf("%v-%v config: %v\n", kv.gid, kv.me, latestConfig)
-        // fmt.Printf("%v-%v myConfig: %v\n", kv.gid, kv.me, kv.config)
-    }
     // re-configure one by one in order
     for i := kv.config.Num + 1; i <= latestConfig.Num; i++ {
         newConfig := kv.sm.Query(i)

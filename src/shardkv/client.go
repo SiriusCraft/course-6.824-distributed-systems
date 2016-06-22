@@ -110,9 +110,7 @@ func (ck *Clerk) Get(key string) string {
 				args.Seq = ck.seq
 				args.Me = ck.me
 				var reply GetReply
-				// fmt.Printf("Get before: %v\n", ck.seq)
 				ok := call(srv, "ShardKV.Get", args, &reply)
-				// fmt.Printf("Get after: %v\n", ck.seq)
 				if ok && (reply.Err == OK || reply.Err == ErrNoKey) {
 					return reply.Value
 				}
@@ -154,9 +152,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 				args.Seq = ck.seq
 				args.Me = ck.me
 				var reply PutAppendReply
-				// fmt.Printf("Put before: %v\n", ck.seq)
 				ok := call(srv, "ShardKV.PutAppend", args, &reply)
-				// fmt.Printf("Put after: %v\n", ck.seq)
 				if ok && reply.Err == OK {
 					return
 				}
