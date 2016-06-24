@@ -1,4 +1,4 @@
-## Lecture 2
+## Lecture 3
 
 #### Question:
 ```
@@ -13,3 +13,10 @@ Based on this analysis, we conclude that although Remus is efficient at state re
 ```
 
 If we increase the checkpointing interval as one second, which would require so much more time for checkpointing that the latency would be much longer. The application is a Web server which requires low latency, thus the performance would be greatly hurt.
+
+## Lecture 4
+
+#### Question:
+```
+Flat Datacenter Storage Suppose tractserver T1 is temporarily unreachable due to a network problem, so the metadata server drops T1 from the TLT. Then the network problem goes away, but for a while the metadata server is not aware that T1's status has changed. During this time could T1 serve client requests to read and write tracts that it stores? If yes, give an example of how this could happen. If no, explain what mechanism(s) prevent this from happening.
+```
