@@ -11,6 +11,7 @@ Based on this analysis, we conclude that although Remus is efficient at state re
 
 If we increase the checkpointing interval as one second, which would require so much more time for checkpointing that the latency would be much longer. The application is a Web server which requires low latency, thus the performance would be greatly hurt.
 
+
 ## Lecture 4
 
 #### Question:
@@ -20,3 +21,15 @@ Flat Datacenter Storage Suppose tractserver T1 is temporarily unreachable due to
 #### Answer:
 
 As stated in the section 3.2 of the paper, the client must use the latest TLT to contact with the tractservers, and as the tractserver T1 has a rather stale TLT, they can not share data as the TLTs does not match. Thus this TLT-base mechanism can prevent this from happening.
+
+
+## Lecture 5
+
+#### Question:
+
+Paxos Made Simple Suppose that the acceptors are A, B, and C. A and B are also proposers. How does Paxos ensure that the following sequence of events can't happen? What actually happens, and which value is ultimately chosen?
+
+A sends prepare requests with proposal number 1, and gets responses from A, B, and C.
+A sends accept(1, "foo") to A and C and gets responses from both. Because a majority accepted, A thinks that "foo" has been chosen. However, A crashes before sending an accept to B.
+B sends prepare messages with proposal number 2, and gets responses from B and C.
+B sends accept(2, "bar") messages to B and C and gets responses from both, so B thinks that "bar" has been chosen.
