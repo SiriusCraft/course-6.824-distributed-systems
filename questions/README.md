@@ -20,7 +20,7 @@ Flat Datacenter Storage Suppose tractserver T1 is temporarily unreachable due to
 
 #### Answer:
 
-As stated in the section 3.2 of the paper, the client must use the latest TLT to contact with the tractservers, and as the tractserver T1 has a rather stale TLT, they can not share data as the TLTs does not match. Thus this TLT-base mechanism can prevent this from happening.
+As stated in the section 3.2 of the paper, the client must use the latest TLT to contact with the tractservers, and as the tractserver T1 has a rather stale TLT, they can not share data as the TLTs does not match. Thus this TLT-base mechanism can prevent this from happening. 
 
 
 ## Lecture 5
@@ -33,3 +33,7 @@ A sends prepare requests with proposal number 1, and gets responses from A, B, a
 A sends accept(1, "foo") to A and C and gets responses from both. Because a majority accepted, A thinks that "foo" has been chosen. However, A crashes before sending an accept to B.
 B sends prepare messages with proposal number 2, and gets responses from B and C.
 B sends accept(2, "bar") messages to B and C and gets responses from both, so B thinks that "bar" has been chosen.
+
+#### Answer:
+
+Paxos only allowed committing previously accepted values. C has accepted "foo" from A, it would reply to B that i has accepted "foo" with a lower proposal number, thus B would choose "foo" for this proposal, which is also the commited value.
