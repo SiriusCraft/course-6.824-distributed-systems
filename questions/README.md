@@ -37,3 +37,20 @@ B sends accept(2, "bar") messages to B and C and gets responses from both, so B 
 #### Answer:
 
 Paxos only allowed committing previously accepted values. C has accepted "foo" from A, it would reply to B that i has accepted "foo" with a lower proposal number, thus B would choose "foo" for this proposal, which is also the commited value.
+
+
+## Lecture 6
+
+#### Question:
+
+Suppose we have the scenario shown in the Raft paper's Figure 7: a cluster of seven servers, with the log contents shown. The first server crashes (the one at the top of the figure), and cannot be contacted. A leader election ensues. For each of the servers marked (a), (d), and (f), could that server be elected? If yes, which servers would vote for it? If no, what specific Raft mechanism(s) would prevent it from being elected?
+
+#### Answer:
+
+As stated in the section 5.4.1 of the paper, the candidate’s log is at least as up-to-date as any other log in that majority. Raft determines which of two logs is more up-to-date by comparing the index and term of the last entries in the logs. If the logs have last entries with different terms, then the log with the later term is more up-to-date. If the logs end with the same term, then whichever log is longer is more up-to-date. 
+
+For server (a): (a), (b), (e), (f) would vote (a)(4 / 6 of the cluster), thus (a) could be elected as leader.
+
+For server (d): all the voters would vote (d), thus (d) could be elected as leader.
+
+For server (f): only itself would vote (f), thus (f) could not be elected as leader.
