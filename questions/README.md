@@ -54,3 +54,15 @@ For server (a): (a), (b), (e), (f) would vote (a)(4 / 6 of the cluster), thus (a
 For server (d): all the voters would vote (d), thus (d) could be elected as leader.
 
 For server (f): only itself would vote (f), thus (f) could not be elected as leader.
+
+## Lecture 8
+
+#### Question:
+
+Replication in the Harp File System Figures 5-1, 5-2, and 5-3 show that Harp often finishes benchmarks faster than a conventional non-replicated NFS server. This may be surprising, since you might expect Harp to do strictly more work than a conventional NFS server (for example, Harp must manage the replication). Why is Harp often faster? Will all NFS operations be faster with Harp than on a conventional NFS server, or just some of them? Which?
+
+#### Answer:
+
+As Harp uses a write-ahead log, which just saves the operation into the memory and does disk-writing in the background asynchronously, it is usually faster than a conventional non-replicated NFS server.
+
+There are sometimes Harp is slower than NFS. For example, if the operation information is so big that surpassed the size threshold of log for Harp, Harp forces the completion of some writes, which would cost a long time.
