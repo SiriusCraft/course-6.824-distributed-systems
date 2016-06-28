@@ -77,4 +77,13 @@ Memory Coherence in Shared Virtual Systems. Answer this question using ivy-code.
 
 #### Answer:
 
-For example, a server **A** reads the value **x** successfully and thus holds a copy of **x**. Then another server **B** writes the value **x** successfully while the manager does not wait for confirmation messages for the invalidates. Assume that the network is slow then, after a long time, we may still read the old value of **x** from the server A even though the writing is finished. Or in other words, the value of **xx** is inconsistent after the writing is finished successfully.
+For example, a server **A** reads the value **x** successfully and thus holds a copy of **x**. Then another server **B** writes the value **x** successfully while the manager does not wait for confirmation messages for the invalidates. Assume that the network is slow then, after a long time, we may still read the old value of **x** from the server A even though the writing is finished. Or in other words, the value of **x** is inconsistent after the writing is finished successfully.
+
+
+## Lecture 10
+
+#### Question:
+
+Distributed Shared Memory on Standard Workstations and Operating Systems. Suppose that a simplified version of Treadmarks, called Dreadmarks, simply sent all modifications of variables between an acquire and a release to the next processor to acquire the same lock. No other modifications are sent. What changes does Treadmarks send that Dreadmarks does not? Outline a specific simple situation in which Treadmarks would provide more useful or intuitive memory behavior than Dreadmarks.
+
+#### Answer:
