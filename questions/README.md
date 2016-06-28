@@ -36,7 +36,7 @@ B sends accept(2, "bar") messages to B and C and gets responses from both, so B 
 
 #### Answer:
 
-Paxos only allowed committing previously accepted values. C has accepted "foo" from A, it would reply to B that i has accepted "foo" with a lower proposal number, thus B would choose "foo" for this proposal, which is also the commited value.
+Paxos only allowed committing previously accepted values. C has accepted "foo" from A, it would reply to B that i has accepted "foo" with a lower proposal number, thus B would choose "foo" for this proposal, which is also the committed value.
 
 
 ## Lecture 6
@@ -55,6 +55,7 @@ For server (d): all the voters would vote (d), thus (d) could be elected as lead
 
 For server (f): only itself would vote (f), thus (f) could not be elected as leader.
 
+
 ## Lecture 8
 
 #### Question:
@@ -66,3 +67,14 @@ Replication in the Harp File System Figures 5-1, 5-2, and 5-3 show that Harp oft
 As Harp uses a write-ahead log, which just saves the operation into the memory and does disk-writing in the background asynchronously, it is usually faster than a conventional non-replicated NFS server.
 
 There are sometimes Harp is slower than NFS. For example, if the operation information is so big that surpassed the size threshold of log for Harp, Harp forces the completion of some writes, which would cost a long time.
+
+
+## Lecture 9
+
+#### Question:
+
+Memory Coherence in Shared Virtual Systems. Answer this question using ivy-code.txt, which is a version of the code in Section 3.1 with some clarifications and bug fixes. You can see that the manager part of the WriteServer sends out invalidate messages, and waits for confirmation messages indicating that the invalidates have been received and processed. Suppose the manager sent out invalidates, but did not wait for confirmations. Describe a scenario in which lack of the confirmation would cause the system to behave incorrectly. You should assume that the network delivers all messages, and that none of the computers fail.
+
+#### Answer:
+
+For example, a server **A** reads the value **x** successfully and thus holds a copy of **x**. Then another server **B** writes the value **x** successfully while the manager does not wait for confirmation messages for the invalidates. Assume that the network is slow then, after a long time, we may still read the old value of **x** from the server A even though the writing is finished. Or in other words, the value of **xx** is inconsistent after the writing is finished successfully.
