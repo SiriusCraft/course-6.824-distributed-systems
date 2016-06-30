@@ -27,9 +27,23 @@ func DPrintf(format string, a ...interface{}) (n int, err error) {
 	return
 }
 
+const (
+    GetOp = 1
+    PutOp = 2
+    AppendOp = 3
+    ReconfigurationOp = 4
+    SyncOp = 5
+)
 
 type Op struct {
 	// Your definitions here.
+	Type        int
+	Key         string
+    Value       string
+    Client      string
+    Seq         int
+    Config      shardmaster.Config
+    SyncData    SyncReply
 }
 
 
@@ -46,6 +60,12 @@ type DisKV struct {
 	gid int64 // my replica group ID
 
 	// Your definitions here.
+	config 	      shardmaster.Config
+	data          map[string]string
+	seen 	   	  map[string]int
+	replyOfErr 	  map[string]Err
+	replyOfValue  map[string]string
+	seq 	      int
 }
 
 //
@@ -138,16 +158,267 @@ func (kv *DisKV) fileReplaceShard(shard int, m map[string]string) {
 	}
 }
 
+func (kv *DisKV) checkSeen(op Op) bool {
+    seq, client := op.Seq, op.Client
+	lastSeq, seenExists := kv.seen[client]
+    if seenExists && lastSeq >= seq {
+        return true
+    }
+    return false
+}
+
+func isSameOp(op1 Op, op2 Op) bool {
+    if op1.Client == op2.Client && op1.Seq == op2.Seq {
+        return true
+    }
+    return false
+}
+
+func (kv *DisKV) applyOp(op Op) {
+   	key, client, seq := op.Key, op.Client, op.Seq
+   	switch op.Type {
+   	case GetOp:
+   		// check if wrong group
+        if (kv.config.Shards[key2shard(key)] != kv.gid) {
+			kv.replyOfErr[client] = ErrWrongGroup
+			return
+		}
+        // check last seen for at-most-once semantic
+        if kv.checkSeen(op) {
+            return
+        }
+
+		// get the value
+		value, exists := kv.data[key]
+
+		// set the reply
+		kv.seen[client] = seq
+   		if (exists) {
+   			kv.replyOfErr[client] = OK
+   		} else {
+   			kv.replyOfErr[client] = ErrNoKey
+   		}
+   		kv.replyOfValue[client] = value
+
+   	case PutOp:
+   		// check if wrong group
+        if (kv.config.Shards[key2shard(key)] != kv.gid) {
+            kv.replyOfErr[client] = ErrWrongGroup
+            return
+        }
+        // check last seen for at-most-once semantic
+        if kv.checkSeen(op) {
+            return
+        }
+
+		// put the value
+   		value, _ := kv.data[key]
+   		kv.data[key] = op.Value
+
+   		// set the reply
+   		kv.seen[client] = seq
+   		kv.replyOfErr[client] = OK
+   		kv.replyOfValue[client] = value
+
+   	case AppendOp:
+   		// check if wrong group
+        if (kv.config.Shards[key2shard(key)] != kv.gid) {
+            kv.replyOfErr[client] = ErrWrongGroup
+            return
+        }
+        // check last seen for at-most-once semantic
+        if kv.checkSeen(op) {
+            return
+        }
+
+		// append the value
+   		value, _ := kv.data[key]
+   		kv.data[key] += op.Value
+
+   		// set the reply
+		kv.seen[client] = seq
+   		kv.replyOfErr[client] = OK
+   		kv.replyOfValue[client] = value
+
+  	case ReconfigurationOp:
+  		if kv.config.Num >= op.Config.Num {
+            return
+        }
+
+        // sync data
+        for key := range op.SyncData.Data {
+            kv.data[key] = op.SyncData.Data[key]
+        }
+
+        // sync clients' states
+        for client := range op.SyncData.Seen {
+            seq, exists := kv.seen[client]
+            if !exists || seq < op.SyncData.Seen[client] {
+                kv.seen[client] = op.SyncData.Seen[client]
+                kv.replyOfErr[client] = op.SyncData.ReplyOfErr[client]
+                kv.replyOfValue[client] = op.SyncData.ReplyOfValue[client]
+            }
+        }
+
+        // update config
+        kv.config = op.Config
+    }
+}
+
+func (kv *DisKV) waitUntilAgreement(seq int, expectedOp Op) bool {
+    to := 10 * time.Millisecond
+    for {
+    	status, instance := kv.px.Status(seq)
+        if status == paxos.Decided {
+            op := instance.(Op)
+
+            kv.applyOp(op) 
+            
+            kv.px.Done(seq)
+                    
+            if (isSameOp(op, expectedOp)) {
+                return true
+            } else {
+                return false
+            }
+        }
+        time.Sleep(to)
+        if to < 10 * time.Second {
+          to *= 2
+        }
+    }
+    return false
+}
+
+func (kv *DisKV) startOp(op Op) (Err, string) {
+    for {
+        kv.seq = kv.seq + 1
+        
+        kv.px.Start(kv.seq, op)
+        if kv.waitUntilAgreement(kv.seq, op) {
+            break
+        }
+    }
+
+    return kv.replyOfErr[op.Client], kv.replyOfValue[op.Client]
+}
 
 func (kv *DisKV) Get(args *GetArgs, reply *GetReply) error {
 	// Your code here.
+	kv.mu.Lock()
+    defer kv.mu.Unlock()
+	
+	// construct GetOp
+    seq, client, key := args.Seq, args.Me, args.Key
+    op := Op{Type: GetOp, Key: key, Client: client, Seq: seq}
+    reply.Err, reply.Value = kv.startOp(op)
+
 	return nil
 }
 
 // RPC handler for client Put and Append requests
 func (kv *DisKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
 	// Your code here.
+	kv.mu.Lock()
+    defer kv.mu.Unlock()
+
+    // construct GetOp
+    seq, client, opType := args.Seq, args.Me, args.Op
+    key, value := args.Key, args.Value
+    var op Op
+    if opType == "Put" {
+    	op = Op{Type: PutOp, Key: key, Value: value, Client: client, Seq: seq}
+	} else {
+		op = Op{Type: AppendOp, Key: key, Value: value, Client: client, Seq: seq}
+	}
+    reply.Err, _ = kv.startOp(op)
+    
 	return nil
+}
+
+func (kv *DisKV) Sync(args *SyncArgs, reply *SyncReply) error {
+    if kv.config.Num < args.Config.Num {
+        reply.Err = ErrNotReady
+        return nil
+    }
+
+    kv.mu.Lock()
+    defer kv.mu.Unlock()
+
+    // construct SyncOp
+    shard := args.Shard
+    op := Op{Type: SyncOp}
+    kv.startOp(op)
+
+    reply.Err = OK
+    reply.Data = make(map[string]string)
+    reply.Seen = make(map[string]int)
+    reply.ReplyOfErr = make(map[string]Err)
+    reply.ReplyOfValue = make(map[string]string)
+
+    for key := range kv.data {
+        if key2shard(key) == shard {
+            reply.Data[key] = kv.data[key]
+        }
+    }
+    for client := range kv.seen {
+        reply.Seen[client] = kv.seen[client]
+        reply.ReplyOfErr[client] = kv.replyOfErr[client]
+        reply.ReplyOfValue[client] = kv.replyOfValue[client]
+    }
+
+    return nil
+}
+
+func (reply *SyncReply) merge(otherReply SyncReply) {
+    // merge data
+    for key := range otherReply.Data {
+        reply.Data[key] = otherReply.Data[key]
+    }
+
+    // merge clients' states
+    for client := range otherReply.Seen {
+        seq, exists := reply.Seen[client]
+        if !exists || seq < otherReply.Seen[client] {
+            reply.Seen[client] = otherReply.Seen[client]
+            reply.ReplyOfErr[client] = otherReply.ReplyOfErr[client]
+            reply.ReplyOfValue[client] = otherReply.ReplyOfValue[client]
+        }
+    }
+}
+
+func (kv *DisKV) reConfigure(newConfig shardmaster.Config) bool {
+    // get all synced data
+    oldConfig := &kv.config
+    syncData := SyncReply{OK, map[string]string{}, map[string]int{},
+        map[string]Err{}, map[string]string{}}
+    for i := 0; i < shardmaster.NShards; i++ {
+        if newConfig.Shards[i] == kv.gid && oldConfig.Shards[i] != kv.gid && len(oldConfig.Groups[oldConfig.Shards[i]]) > 0 {
+            args := &SyncArgs{}
+            args.Shard = i
+            args.Config = *oldConfig
+            synced := false
+            var reply SyncReply
+            for _, srv := range oldConfig.Groups[oldConfig.Shards[i]] {
+                ok := call(srv, "DisKV.Sync", args, &reply)
+                if ok && reply.Err == OK {
+                    synced = true
+                    break
+                }
+            }
+            if !synced {
+                return false
+            }
+
+            syncData.merge(reply)
+        }
+    }
+
+    // construct ReconfigurationOp
+    op := Op{Type: ReconfigurationOp, Config: newConfig, SyncData: syncData}
+    kv.startOp(op)
+
+    return true
 }
 
 //
@@ -156,6 +427,18 @@ func (kv *DisKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
 //
 func (kv *DisKV) tick() {
 	// Your code here.
+	kv.mu.Lock()
+    defer kv.mu.Unlock()
+
+    // get latest config
+    latestConfig := kv.sm.Query(-1)
+    // re-configure one by one in order
+    for i := kv.config.Num + 1; i <= latestConfig.Num; i++ {
+        newConfig := kv.sm.Query(i)
+        if (!kv.reConfigure(newConfig)) {
+            return
+        }
+    }
 }
 
 // tell the server to shut itself down.
@@ -210,6 +493,12 @@ func StartServer(gid int64, shardmasters []string,
 
 	// Your initialization code here.
 	// Don't call Join().
+	kv.config = shardmaster.Config{Num:-1}
+	kv.data = make(map[string]string)
+	kv.seen = make(map[string]int)
+	kv.replyOfErr = make(map[string]Err)
+	kv.replyOfValue = make(map[string]string)
+	kv.seq = -1
 
 	// log.SetOutput(ioutil.Discard)
 
