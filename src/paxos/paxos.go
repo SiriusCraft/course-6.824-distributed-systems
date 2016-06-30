@@ -210,10 +210,6 @@ func (px *Paxos) propose(seq int, v interface{}) {
 			break
 		}
 
-		instance, exist := px.instances[seq]
-		if exist && instance.decided == true {
-			break
-		}
 		n := px.generateProposalNumber()
 		ok, value := px.sendPrepare(seq, n, v)
 		if ok {
@@ -315,10 +311,6 @@ func (px *Paxos) ProcessDecision(args PaxosArgs, reply *PaxosReply) error {
 func (px *Paxos) Start(seq int, v interface{}) {
 	// Your code here.
 	go func() {
-		instance, exist := px.instances[seq]
-		if exist && instance.decided {
-			return
-		}
 		if seq < px.Min() {
 			return
 		}
