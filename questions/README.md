@@ -89,3 +89,14 @@ Distributed Shared Memory on Standard Workstations and Operating Systems. Suppos
 #### Answer:
 
 Treadmarks only send the write notice to the next acquirer about which pages have been invalidated, only a request to invalidated page cause the process to request the modifications; but Dreadmarks send the actual modifications, it would be wasteful if the next process does not use them.
+
+
+## Lecture 11
+
+#### Question:
+
+Ficus Imagine a situation like the paper's Figure 1, but in which only Site A updates file Foo. What should Ficus do in that case when the partition is merged? Explain how Ficus could tell the difference between the situation in which both Site A and Site B update Foo, and the situation in which only Site A updates Foo.
+
+#### Answer:
+
+As stated in the section 2 of the paper, Ficus detects all types of conflicts using a mechanism known as a version vector and conflicts are detected by comparing version vectors from two file replicas. If only Site A updates file Foo, the version vector of A would will be a super set of B's, and if both Site A and Site B updates Foo, this condition does not hold.
