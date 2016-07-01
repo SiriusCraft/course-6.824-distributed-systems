@@ -87,3 +87,5 @@ For example, a server **A** reads the value **x** successfully and thus holds a 
 Distributed Shared Memory on Standard Workstations and Operating Systems. Suppose that a simplified version of Treadmarks, called Dreadmarks, simply sent all modifications of variables between an acquire and a release to the next processor to acquire the same lock. No other modifications are sent. What changes does Treadmarks send that Dreadmarks does not? Outline a specific simple situation in which Treadmarks would provide more useful or intuitive memory behavior than Dreadmarks.
 
 #### Answer:
+
+Treadmarks only send the write notice to the next acquirer about which pages have been invalidated, only a request to invalidated page cause the process to request the modifications; but Dreadmarks send the actual modifications, it would be wasteful if the next process does not use them.
