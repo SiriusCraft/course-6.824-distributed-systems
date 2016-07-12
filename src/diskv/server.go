@@ -125,8 +125,7 @@ func (kv *DisKV) filePut(shard int, key string, content string) error {
 }
 
 // return content of every key file in a given shard.
-func (kv *DisKV) fileReadShard(shard int) map[string]string {
-	m := map[string]string{}
+func (kv *DisKV) fileReadShard(shard int, m map[string]string) map[string]string {
 	d := kv.shardDir(shard)
 	files, err := ioutil.ReadDir(d)
 	if err != nil {
@@ -220,6 +219,11 @@ func (kv *DisKV) applyOp(op Op) {
    		kv.replyOfErr[client] = OK
    		kv.replyOfValue[client] = value
 
+        fmt.Printf("Put : %v\n", kv.data[key])
+        fmt.Printf("Shard : %v key : %v\n", key2shard(key), key)
+        error := kv.filePut(key2shard(key), key, kv.data[key])
+        fmt.Printf("%v\n", error)
+
    	case AppendOp:
    		// check if wrong group
         if (kv.config.Shards[key2shard(key)] != kv.gid) {
@@ -234,11 +238,17 @@ func (kv *DisKV) applyOp(op Op) {
 		// append the value
    		value, _ := kv.data[key]
    		kv.data[key] += op.Value
+        kv.filePut(key2shard(key), key, kv.data[key])
 
    		// set the reply
 		kv.seen[client] = seq
    		kv.replyOfErr[client] = OK
    		kv.replyOfValue[client] = value
+
+        fmt.Printf("Append : %v\n", kv.data[key])
+        fmt.Printf("Shard : %v key : %v\n", key2shard(key), key)
+        error := kv.filePut(key2shard(key), key, kv.data[key])
+        fmt.Printf("%v\n", error)
 
   	case ReconfigurationOp:
   		if kv.config.Num >= op.Config.Num {
@@ -494,11 +504,18 @@ func StartServer(gid int64, shardmasters []string,
 	// Your initialization code here.
 	// Don't call Join().
 	kv.config = shardmaster.Config{Num:-1}
-	kv.data = make(map[string]string)
+    kv.data = make(map[string]string)
 	kv.seen = make(map[string]int)
 	kv.replyOfErr = make(map[string]Err)
 	kv.replyOfValue = make(map[string]string)
 	kv.seq = -1
+
+    if restart {
+        fmt.Printf("Restart !")
+        for i := 0; i < shardmaster.NShards; i++ {
+            kv.data = kv.fileReadShard(i, kv.data)
+        }
+    }
 
 	// log.SetOutput(ioutil.Discard)
 

@@ -483,7 +483,7 @@ func Test4ConcurrentUnreliable(t *testing.T) {
 // do the servers write k/v pairs to disk, so that they
 // are still available after kill+restart?
 //
-func DIS_Test5BasicPersistence(t *testing.T) {
+func Test5BasicPersistence(t *testing.T) {
 	tc := setup(t, "basicpersistence", 1, 3, false)
 	defer tc.cleanup()
 
@@ -541,7 +541,7 @@ func DIS_Test5BasicPersistence(t *testing.T) {
 // if server S1 is dead for a bit, and others accept operations,
 // do they bring S1 up to date correctly after it restarts?
 //
-func DIS_Test5OneRestart(t *testing.T) {
+func FAIL_Test5OneRestart(t *testing.T) {
 	tc := setup(t, "onerestart", 1, 3, false)
 	defer tc.cleanup()
 
@@ -596,7 +596,7 @@ func DIS_Test5OneRestart(t *testing.T) {
 //
 // check that the persistent state isn't too big.
 //
-func DIS_Test5DiskUse(t *testing.T) {
+func FAIL_Test5DiskUse(t *testing.T) {
 	tc := setup(t, "diskuse", 1, 3, false)
 	defer tc.cleanup()
 
@@ -693,7 +693,7 @@ func DIS_Test5DiskUse(t *testing.T) {
 //
 // check that the persistent state isn't too big for Appends.
 //
-func DIS_Test5AppendUse(t *testing.T) {
+func FAIL_Test5AppendUse(t *testing.T) {
 	tc := setup(t, "appenduse", 1, 3, false)
 	defer tc.cleanup()
 
@@ -792,7 +792,7 @@ func DIS_Test5AppendUse(t *testing.T) {
 //
 // recovery if a single replica loses disk content.
 //
-func DIS_Test5OneLostDisk(t *testing.T) {
+func FAIL_Test5OneLostDisk(t *testing.T) {
 	tc := setup(t, "onelostdisk", 1, 3, false)
 	defer tc.cleanup()
 
@@ -871,7 +871,7 @@ func DIS_Test5OneLostDisk(t *testing.T) {
 //
 // one disk lost while another replica is merely down.
 //
-func DIS_Test5OneLostOneDown(t *testing.T) {
+func FAIL_Test5OneLostOneDown(t *testing.T) {
 	tc := setup(t, "onelostonedown", 1, 5, false)
 	defer tc.cleanup()
 
@@ -1074,7 +1074,7 @@ func doConcurrentCrash(t *testing.T, unreliable bool) {
 	}
 }
 
-func DIS_Test5ConcurrentCrashReliable(t *testing.T) {
+func FAIL_Test5ConcurrentCrashReliable(t *testing.T) {
 	fmt.Printf("Test: Concurrent Append and Crash ...\n")
 	doConcurrentCrash(t, false)
 	fmt.Printf("  ... Passed\n")
@@ -1083,7 +1083,7 @@ func DIS_Test5ConcurrentCrashReliable(t *testing.T) {
 //
 // Append() at same time as crash.
 //
-func DIS_Test5Simultaneous(t *testing.T) {
+func FAIL_Test5Simultaneous(t *testing.T) {
 	tc := setup(t, "simultaneous", 1, 3, true)
 	defer tc.cleanup()
 
@@ -1136,7 +1136,7 @@ func DIS_Test5Simultaneous(t *testing.T) {
 // recovery with mixture of lost disks and simple reboot.
 // does a replica that loses its disk wait for majority?
 //
-func DIS_Test5RejoinMix1(t *testing.T) {
+func FAIL_Test5RejoinMix1(t *testing.T) {
 	tc := setup(t, "rejoinmix1", 1, 5, false)
 	defer tc.cleanup()
 
@@ -1216,7 +1216,7 @@ func DIS_Test5RejoinMix1(t *testing.T) {
 // does a replica that loses its state avoid
 // changing its mind about Paxos agreements?
 //
-func DIS_Test5RejoinMix3(t *testing.T) {
+func FAIL_Test5RejoinMix3(t *testing.T) {
 	tc := setup(t, "rejoinmix3", 1, 5, false)
 	defer tc.cleanup()
 
