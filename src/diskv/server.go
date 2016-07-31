@@ -575,13 +575,6 @@ func StartServer(gid int64, shardmasters []string,
 	kv.replyOfErr = make(map[string]Err)
 	kv.replyOfValue = make(map[string]string)
 	kv.seq = -1
-
-    if restart {
-        // fmt.Printf("Restart !")
-        for i := 0; i < shardmaster.NShards; i++ {
-            kv.data = kv.fileReadShard(i, kv.data)
-        }
-    }
     
 	// log.SetOutput(ioutil.Discard)
 
@@ -610,9 +603,11 @@ func StartServer(gid int64, shardmasters []string,
 
         var data PersistentData
         err := kv.readPersistentData(&data)
-        kv.seen = data.Seen
-        kv.replyOfErr = data.ReplyOfErr
-        kv.replyOfValue = data.ReplyOfValue
+        if err == nil {
+            kv.seen = data.Seen
+            kv.replyOfErr = data.ReplyOfErr
+            kv.replyOfValue = data.ReplyOfValue
+        }
         fmt.Printf("Restart!\n")
         fmt.Printf("%v\n", err)
         fmt.Printf("%v\n", data.Seen)

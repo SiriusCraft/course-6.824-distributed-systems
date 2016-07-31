@@ -792,7 +792,7 @@ func Test5AppendUse(t *testing.T) {
 //
 // recovery if a single replica loses disk content.
 //
-func FAIL_Test5OneLostDisk(t *testing.T) {
+func Test5OneLostDisk(t *testing.T) {
 	tc := setup(t, "onelostdisk", 1, 3, false)
 	defer tc.cleanup()
 
