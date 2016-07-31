@@ -541,7 +541,7 @@ func Test5BasicPersistence(t *testing.T) {
 // if server S1 is dead for a bit, and others accept operations,
 // do they bring S1 up to date correctly after it restarts?
 //
-func FAIL_Test5OneRestart(t *testing.T) {
+func Test5OneRestart(t *testing.T) {
 	tc := setup(t, "onerestart", 1, 3, false)
 	defer tc.cleanup()
 

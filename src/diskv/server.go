@@ -16,6 +16,7 @@ import "math/rand"
 import "shardmaster"
 import "io/ioutil"
 import "strconv"
+import "bytes"
 
 
 const Debug = 0
@@ -68,6 +69,14 @@ type DisKV struct {
 	seq 	      int
 }
 
+type PersistentData struct {
+    Seen          map[string]int
+    ReplyOfErr    map[string]Err
+    ReplyOfValue  map[string]string
+    Seq           int
+    Px            paxos.Paxos
+}
+
 //
 // these are handy functions that might be useful
 // for reading and writing key/value files, and
@@ -87,6 +96,19 @@ func (kv *DisKV) shardDir(shard int) string {
 	}
 	return d
 }
+
+func (kv *DisKV) getDir() string {
+    d := kv.dir + "/data/"
+    // create directory if needed.
+    _, err := os.Stat(d)
+    if err != nil {
+        if err := os.Mkdir(d, 0777); err != nil {
+            log.Fatalf("Mkdir(%v): %v", d, err)
+        }
+    }
+    return d
+}
+
 
 // cannot use keys in file names directly, since
 // they might contain troublesome characters like /.
@@ -157,6 +179,44 @@ func (kv *DisKV) fileReplaceShard(shard int, m map[string]string) {
 	}
 }
 
+// save persistent data
+func (kv *DisKV) savePersistentData() error {
+    var fout bytes.Buffer      
+    enc := gob.NewEncoder(&fout)
+    data := PersistentData{Seen: kv.seen, ReplyOfErr: kv.replyOfErr, ReplyOfValue: kv.replyOfValue,
+        Seq: kv.seq, Px: *kv.px}
+    if err := enc.Encode(data); err != nil {
+        return err
+    }
+
+    fullname := kv.getDir() + "data"
+    tempname := kv.getDir() + "/temp"
+    if err := ioutil.WriteFile(tempname, fout.Bytes(), 0666); err != nil {
+        return err
+    }
+    if err := os.Rename(tempname, fullname); err != nil {
+        return err
+    }
+    
+    return nil
+}
+
+// save persistent data
+func (kv *DisKV) readPersistentData(data *PersistentData) error {
+    fullname := kv.getDir() + "data"
+    fin, err := os.Open(fullname)
+    if err != nil {
+        return err
+    }
+
+    dec := gob.NewDecoder(fin)
+    if err := dec.Decode(data); err != nil {
+        return err
+    }
+
+    return nil
+}
+
 func (kv *DisKV) checkSeen(op Op) bool {
     seq, client := op.Seq, op.Client
 	lastSeq, seenExists := kv.seen[client]
@@ -213,16 +273,16 @@ func (kv *DisKV) applyOp(op Op) {
 		// put the value
    		value, _ := kv.data[key]
    		kv.data[key] = op.Value
+        kv.filePut(key2shard(key), key, kv.data[key])
 
    		// set the reply
    		kv.seen[client] = seq
    		kv.replyOfErr[client] = OK
    		kv.replyOfValue[client] = value
 
-        fmt.Printf("Put : %v\n", kv.data[key])
-        fmt.Printf("Shard : %v key : %v\n", key2shard(key), key)
-        error := kv.filePut(key2shard(key), key, kv.data[key])
-        fmt.Printf("%v\n", error)
+        // fmt.Printf("Put : %v\n", kv.data[key])
+        // fmt.Printf("Shard : %v key : %v\n", key2shard(key), key)
+        // fmt.Printf("%v\n", error)
 
    	case AppendOp:
    		// check if wrong group
@@ -245,10 +305,9 @@ func (kv *DisKV) applyOp(op Op) {
    		kv.replyOfErr[client] = OK
    		kv.replyOfValue[client] = value
 
-        fmt.Printf("Append : %v\n", kv.data[key])
-        fmt.Printf("Shard : %v key : %v\n", key2shard(key), key)
-        error := kv.filePut(key2shard(key), key, kv.data[key])
-        fmt.Printf("%v\n", error)
+        // fmt.Printf("Append : %v\n", kv.data[key])
+        // fmt.Printf("Shard : %v key : %v\n", key2shard(key), key)
+        // fmt.Printf("%v\n", error)
 
   	case ReconfigurationOp:
   		if kv.config.Num >= op.Config.Num {
@@ -440,6 +499,9 @@ func (kv *DisKV) tick() {
 	kv.mu.Lock()
     defer kv.mu.Unlock()
 
+    // save persistent data regularly
+    kv.savePersistentData()
+
     // get latest config
     latestConfig := kv.sm.Query(-1)
     // re-configure one by one in order
@@ -510,13 +572,6 @@ func StartServer(gid int64, shardmasters []string,
 	kv.replyOfValue = make(map[string]string)
 	kv.seq = -1
 
-    if restart {
-        fmt.Printf("Restart !")
-        for i := 0; i < shardmaster.NShards; i++ {
-            kv.data = kv.fileReadShard(i, kv.data)
-        }
-    }
-
 	// log.SetOutput(ioutil.Discard)
 
 	gob.Register(Op{})
@@ -528,14 +583,30 @@ func StartServer(gid int64, shardmasters []string,
 
 	// log.SetOutput(os.Stdout)
 
-
-
 	os.Remove(servers[me])
 	l, e := net.Listen("unix", servers[me])
 	if e != nil {
 		log.Fatal("listen error: ", e)
 	}
 	kv.l = l
+
+    // reload the data from disk if restart
+    if restart {
+        // fmt.Printf("Restart !")
+        for i := 0; i < shardmaster.NShards; i++ {
+            kv.data = kv.fileReadShard(i, kv.data)
+        }
+
+        /*
+        var data PersistentData
+        kv.readPersistentData(&data)
+        kv.seen = data.Seen
+        kv.replyOfErr = data.ReplyOfErr
+        kv.replyOfValue = data.ReplyOfValue
+        kv.seq = data.Seq
+        kv.px = &data.Px
+        */
+    }
 
 	// please do not change any of the following code,
 	// or do anything to subvert it.
