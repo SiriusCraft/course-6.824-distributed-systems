@@ -219,10 +219,10 @@ func (kv *DisKV) applyOp(op Op) {
    		kv.replyOfErr[client] = OK
    		kv.replyOfValue[client] = value
 
-        fmt.Printf("Put : %v\n", kv.data[key])
-        fmt.Printf("Shard : %v key : %v\n", key2shard(key), key)
-        error := kv.filePut(key2shard(key), key, kv.data[key])
-        fmt.Printf("%v\n", error)
+        // fmt.Printf("Put : %v\n", kv.data[key])
+        // fmt.Printf("Shard : %v key : %v\n", key2shard(key), key)
+        kv.filePut(key2shard(key), key, kv.data[key])
+        // fmt.Printf("%v\n", error)
 
    	case AppendOp:
    		// check if wrong group
@@ -245,10 +245,10 @@ func (kv *DisKV) applyOp(op Op) {
    		kv.replyOfErr[client] = OK
    		kv.replyOfValue[client] = value
 
-        fmt.Printf("Append : %v\n", kv.data[key])
-        fmt.Printf("Shard : %v key : %v\n", key2shard(key), key)
-        error := kv.filePut(key2shard(key), key, kv.data[key])
-        fmt.Printf("%v\n", error)
+        // fmt.Printf("Append : %v\n", kv.data[key])
+        // fmt.Printf("Shard : %v key : %v\n", key2shard(key), key)
+        kv.filePut(key2shard(key), key, kv.data[key])
+        // fmt.Printf("%v\n", error)
 
   	case ReconfigurationOp:
   		if kv.config.Num >= op.Config.Num {
@@ -511,7 +511,7 @@ func StartServer(gid int64, shardmasters []string,
 	kv.seq = -1
 
     if restart {
-        fmt.Printf("Restart !")
+        // fmt.Printf("Restart !")
         for i := 0; i < shardmaster.NShards; i++ {
             kv.data = kv.fileReadShard(i, kv.data)
         }
