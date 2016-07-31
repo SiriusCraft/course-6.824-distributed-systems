@@ -693,7 +693,7 @@ func Test5DiskUse(t *testing.T) {
 //
 // check that the persistent state isn't too big for Appends.
 //
-func FAIL_Test5AppendUse(t *testing.T) {
+func Test5AppendUse(t *testing.T) {
 	tc := setup(t, "appenduse", 1, 3, false)
 	defer tc.cleanup()
 
