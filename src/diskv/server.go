@@ -74,7 +74,6 @@ type PersistentData struct {
     ReplyOfErr    map[string]Err
     ReplyOfValue  map[string]string
     Seq           int
-    Px            paxos.Paxos
 }
 
 //
@@ -184,12 +183,12 @@ func (kv *DisKV) savePersistentData() error {
     var fout bytes.Buffer      
     enc := gob.NewEncoder(&fout)
     data := PersistentData{Seen: kv.seen, ReplyOfErr: kv.replyOfErr, ReplyOfValue: kv.replyOfValue,
-        Seq: kv.seq, Px: *kv.px}
+        Seq: kv.seq}
     if err := enc.Encode(data); err != nil {
         return err
     }
 
-    fullname := kv.getDir() + "data"
+    fullname := kv.getDir() + "/data"
     tempname := kv.getDir() + "/temp"
     if err := ioutil.WriteFile(tempname, fout.Bytes(), 0666); err != nil {
         return err
@@ -203,7 +202,7 @@ func (kv *DisKV) savePersistentData() error {
 
 // save persistent data
 func (kv *DisKV) readPersistentData(data *PersistentData) error {
-    fullname := kv.getDir() + "data"
+    fullname := kv.getDir() + "/data"
     fin, err := os.Open(fullname)
     if err != nil {
         return err
@@ -282,10 +281,7 @@ func (kv *DisKV) applyOp(op Op) {
 
         // fmt.Printf("Put : %v\n", kv.data[key])
         // fmt.Printf("Shard : %v key : %v\n", key2shard(key), key)
-<<<<<<< HEAD
-=======
         kv.filePut(key2shard(key), key, kv.data[key])
->>>>>>> 27bffa3e9c25d94bf2e7db192c02607f9d0f506f
         // fmt.Printf("%v\n", error)
 
    	case AppendOp:
@@ -505,7 +501,10 @@ func (kv *DisKV) tick() {
     defer kv.mu.Unlock()
 
     // save persistent data regularly
-    kv.savePersistentData()
+    err := kv.savePersistentData()
+    fmt.Printf("SavePersistentData!\n")
+    fmt.Printf("%v\n", err)
+    fmt.Printf("%v\n", kv.seen)
 
     // get latest config
     latestConfig := kv.sm.Query(-1)
@@ -609,15 +608,18 @@ func StartServer(gid int64, shardmasters []string,
             kv.data = kv.fileReadShard(i, kv.data)
         }
 
-        /*
         var data PersistentData
-        kv.readPersistentData(&data)
+        err := kv.readPersistentData(&data)
         kv.seen = data.Seen
         kv.replyOfErr = data.ReplyOfErr
         kv.replyOfValue = data.ReplyOfValue
-        kv.seq = data.Seq
-        kv.px = &data.Px
-        */
+        fmt.Printf("Restart!\n")
+        fmt.Printf("%v\n", err)
+        fmt.Printf("%v\n", data.Seen)
+        fmt.Printf("%v\n", data.ReplyOfErr)
+        fmt.Printf("%v\n", data.ReplyOfValue)
+        // kv.seq = data.Seq
+        // kv.px = &data.Px
     }
 
 	// please do not change any of the following code,
@@ -655,7 +657,7 @@ func StartServer(gid int64, shardmasters []string,
 	go func() {
 		for kv.isdead() == false {
 			kv.tick()
-			time.Sleep(250 * time.Millisecond)
+			time.Sleep(50 * time.Millisecond)
 		}
 	}()
 
