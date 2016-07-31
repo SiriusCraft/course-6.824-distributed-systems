@@ -871,7 +871,7 @@ func Test5OneLostDisk(t *testing.T) {
 //
 // one disk lost while another replica is merely down.
 //
-func FAIL_Test5OneLostOneDown(t *testing.T) {
+func Test5OneLostOneDown(t *testing.T) {
 	tc := setup(t, "onelostonedown", 1, 5, false)
 	defer tc.cleanup()
 
