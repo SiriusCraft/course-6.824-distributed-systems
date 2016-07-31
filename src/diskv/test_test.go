@@ -1216,7 +1216,7 @@ func FAIL_Test5RejoinMix1(t *testing.T) {
 // does a replica that loses its state avoid
 // changing its mind about Paxos agreements?
 //
-func FAIL_Test5RejoinMix3(t *testing.T) {
+func Test5RejoinMix3(t *testing.T) {
 	tc := setup(t, "rejoinmix3", 1, 5, false)
 	defer tc.cleanup()
 
