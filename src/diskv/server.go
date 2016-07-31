@@ -282,6 +282,10 @@ func (kv *DisKV) applyOp(op Op) {
 
         // fmt.Printf("Put : %v\n", kv.data[key])
         // fmt.Printf("Shard : %v key : %v\n", key2shard(key), key)
+<<<<<<< HEAD
+=======
+        kv.filePut(key2shard(key), key, kv.data[key])
+>>>>>>> 27bffa3e9c25d94bf2e7db192c02607f9d0f506f
         // fmt.Printf("%v\n", error)
 
    	case AppendOp:
@@ -307,6 +311,7 @@ func (kv *DisKV) applyOp(op Op) {
 
         // fmt.Printf("Append : %v\n", kv.data[key])
         // fmt.Printf("Shard : %v key : %v\n", key2shard(key), key)
+        kv.filePut(key2shard(key), key, kv.data[key])
         // fmt.Printf("%v\n", error)
 
   	case ReconfigurationOp:
@@ -572,6 +577,13 @@ func StartServer(gid int64, shardmasters []string,
 	kv.replyOfValue = make(map[string]string)
 	kv.seq = -1
 
+    if restart {
+        // fmt.Printf("Restart !")
+        for i := 0; i < shardmaster.NShards; i++ {
+            kv.data = kv.fileReadShard(i, kv.data)
+        }
+    }
+    
 	// log.SetOutput(ioutil.Discard)
 
 	gob.Register(Op{})
