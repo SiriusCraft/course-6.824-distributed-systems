@@ -596,7 +596,7 @@ func FAIL_Test5OneRestart(t *testing.T) {
 //
 // check that the persistent state isn't too big.
 //
-func FAIL_Test5DiskUse(t *testing.T) {
+func Test5DiskUse(t *testing.T) {
 	tc := setup(t, "diskuse", 1, 3, false)
 	defer tc.cleanup()
 
