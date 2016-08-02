@@ -114,3 +114,13 @@ First, the dependency check ensures that both files exist and the contents match
 Second, Bayou will maintain a global ordering when combined with the dependency checks, thus will ensure that all nodes agree on it. The first operation in the update log will occur and the other will not.
 
 [Reference](https://github.com/ankushg/distributed-systems-go/blob/master/assignments/lec12.txt)
+
+## Lecture 13
+
+#### Question:
+
+How soon after it receives the first file of intermediate data can a reduce worker start calling the application's Reduce function? Explain your answer.
+
+#### Answer:
+
+After the reducer receive all files of intermediate data from mappers as it needs to do a sort shuffle before reducing.
