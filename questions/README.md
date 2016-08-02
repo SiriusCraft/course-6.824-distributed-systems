@@ -124,3 +124,15 @@ How soon after it receives the first file of intermediate data can a reduce work
 #### Answer:
 
 After the reducer receive all files of intermediate data from mappers as it needs to do a sort shuffle before reducing.
+
+## Lecture 14
+
+#### Question:
+
+What applications can Spark support well that MapReduce/Hadoop cannot support?
+
+#### Answer:
+
+Iterative Algorithms - As Spark store data into memory thus iterative computations that visit same data several times will be much more faster on Spark;
+
+Streaming Data
