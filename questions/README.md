@@ -100,3 +100,17 @@ Ficus Imagine a situation like the paper's Figure 1, but in which only Site A up
 #### Answer:
 
 As stated in the section 2 of the paper, Ficus detects all types of conflicts using a mechanism known as a version vector and conflicts are detected by comparing version vectors from two file replicas. If only Site A updates file Foo, the version vector of A would will be a super set of B's, and if both Site A and Site B updates Foo, this condition does not hold.
+
+## Lecture 12
+
+#### Question:
+
+Suppose we build a distributed filesystem using Bayou, and the system has a copy operation. Initially, file A contains "foo" and file B contains "bar". On one node, a user copies file A to file B, overwriting the old contents of B. On another node, a user copies file B to file A. After both operations are committed, we want both files to contain "foo" or for both files to contain "bar". Sketch a dependency check and merge procedure for the copy operation that makes this work. How does Bayou ensure that all the nodes agree about whether A and B contain "foo" or "bar"?
+
+#### Answer:
+
+First, the dependency check ensures that both files exist and the contents match some pattern(for example, "foo" or "bar").
+
+Second, Bayou will maintain a global ordering when combined with the dependency checks, thus will ensure that all nodes agree on it. The first operation in the update log will occur and the other will not.
+
+[Reference](https://github.com/ankushg/distributed-systems-go/blob/master/assignments/lec12.txt)
