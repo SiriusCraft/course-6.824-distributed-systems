@@ -136,3 +136,17 @@ What applications can Spark support well that MapReduce/Hadoop cannot support?
 Iterative Algorithms - As Spark store data into memory thus iterative computations that visit same data several times will be much more faster on Spark;
 
 Streaming Data
+
+## Lecture 15
+
+#### Question:
+
+Suppose a Spanner server's TT.now() returns correct information, but the uncertainty is large. For example, suppose the absolute time is 10:15:30, and TT.now() returns the interval [10:15:20,10:15:40]. That interval is correct in that it contains the absolute time, but the error bound is 10 seconds. See Section 3 for an explanation TT.now(). What bad effect will a large error bound have on Spanner's operation? Give a specific example.
+
+#### Answer:
+
+Consider the following scenario:
+- C_1 writes K1 to V1;
+- C_2 reads K1;
+
+As stated in the section 4.1.2("Commit Wait") of the paper, the leader will force C_1 to wait 10 seconds before committing. Thus C_2 have to wait 10 seconds to read the value V1.
