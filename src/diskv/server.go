@@ -607,12 +607,14 @@ func StartServer(gid int64, shardmasters []string,
             kv.seen = data.Seen
             kv.replyOfErr = data.ReplyOfErr
             kv.replyOfValue = data.ReplyOfValue
+            kv.seq = data.Seq
         }
         fmt.Printf("Restart!\n")
         fmt.Printf("%v\n", err)
         fmt.Printf("%v\n", data.Seen)
         fmt.Printf("%v\n", data.ReplyOfErr)
         fmt.Printf("%v\n", data.ReplyOfValue)
+        fmt.Printf("%v\n", data.Seq)
         // kv.seq = data.Seq
         // kv.px = &data.Px
     }

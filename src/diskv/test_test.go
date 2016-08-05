@@ -1074,7 +1074,7 @@ func doConcurrentCrash(t *testing.T, unreliable bool) {
 	}
 }
 
-func FAIL_Test5ConcurrentCrashReliable(t *testing.T) {
+func Test5ConcurrentCrashReliable(t *testing.T) {
 	fmt.Printf("Test: Concurrent Append and Crash ...\n")
 	doConcurrentCrash(t, false)
 	fmt.Printf("  ... Passed\n")
