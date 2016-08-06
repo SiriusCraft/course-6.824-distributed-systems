@@ -501,10 +501,10 @@ func (kv *DisKV) tick() {
     defer kv.mu.Unlock()
 
     // save persistent data regularly
-    err := kv.savePersistentData()
-    fmt.Printf("SavePersistentData!\n")
-    fmt.Printf("%v\n", err)
-    fmt.Printf("%v\n", kv.seen)
+    kv.savePersistentData()
+    // fmt.Printf("SavePersistentData!\n")
+    // fmt.Printf("%v\n", err)
+    // fmt.Printf("%v\n", kv.seen)
 
     // get latest config
     latestConfig := kv.sm.Query(-1)
@@ -609,12 +609,12 @@ func StartServer(gid int64, shardmasters []string,
             kv.replyOfValue = data.ReplyOfValue
             kv.seq = data.Seq
         }
-        fmt.Printf("Restart!\n")
-        fmt.Printf("%v\n", err)
-        fmt.Printf("%v\n", data.Seen)
-        fmt.Printf("%v\n", data.ReplyOfErr)
-        fmt.Printf("%v\n", data.ReplyOfValue)
-        fmt.Printf("%v\n", data.Seq)
+        // fmt.Printf("Restart!\n")
+        // fmt.Printf("%v\n", err)
+        // fmt.Printf("%v\n", data.Seen)
+        // fmt.Printf("%v\n", data.ReplyOfErr)
+        // fmt.Printf("%v\n", data.ReplyOfValue)
+        // fmt.Printf("%v\n", data.Seq)
         // kv.seq = data.Seq
         // kv.px = &data.Px
     }
