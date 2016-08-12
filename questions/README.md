@@ -101,6 +101,7 @@ Ficus Imagine a situation like the paper's Figure 1, but in which only Site A up
 
 As stated in the section 2 of the paper, Ficus detects all types of conflicts using a mechanism known as a version vector and conflicts are detected by comparing version vectors from two file replicas. If only Site A updates file Foo, the version vector of A would will be a super set of B's, and if both Site A and Site B updates Foo, this condition does not hold.
 
+
 ## Lecture 12
 
 #### Question:
@@ -115,6 +116,7 @@ Second, Bayou will maintain a global ordering when combined with the dependency 
 
 [Reference](https://github.com/ankushg/distributed-systems-go/blob/master/assignments/lec12.txt)
 
+
 ## Lecture 13
 
 #### Question:
@@ -124,6 +126,7 @@ How soon after it receives the first file of intermediate data can a reduce work
 #### Answer:
 
 After the reducer receive all files of intermediate data from mappers as it needs to do a sort shuffle before reducing.
+
 
 ## Lecture 14
 
@@ -136,6 +139,7 @@ What applications can Spark support well that MapReduce/Hadoop cannot support?
 Iterative Algorithms - As Spark store data into memory thus iterative computations that visit same data several times will be much more faster on Spark;
 
 Streaming Data
+
 
 ## Lecture 15
 
@@ -150,3 +154,14 @@ Consider the following scenario:
 - C_2 reads K1;
 
 As stated in the section 4.1.2("Commit Wait") of the paper, the leader will force C_1 to wait 10 seconds before committing. Thus C_2 have to wait 10 seconds to read the value V1.
+
+
+## Lecture 16
+
+#### Question:
+
+Section 3.3 implies that a client that writes data does not delete the corresponding key from the Gutter servers, even though the client does try to delete the key from the ordinary Memcached servers (Figure 1). Explain why it would be a bad idea for writing clients to delete keys from Gutter servers.
+
+#### Answer:
+
+As the Gutter servers are already backups for failed service, the deletion of keys would cause more traffic for the servers which would harm read performance.
