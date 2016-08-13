@@ -187,7 +187,7 @@ func (kv *DisKV) savePersistentData() error {
     var fout bytes.Buffer      
     enc := gob.NewEncoder(&fout)
     data := PersistentData{Seen: kv.seen, ReplyOfErr: kv.replyOfErr, ReplyOfValue: kv.replyOfValue,
-        Seq: kv.seq, Config: kv.config, Instances: kv.px.GetInstances(), Dones: kv.px.GetDones()}
+        Config: kv.config, Instances: kv.px.GetInstances(), Dones: kv.px.GetDones()}
     if err := enc.Encode(data); err != nil {
         return err
     }
@@ -366,8 +366,8 @@ func (kv *DisKV) waitUntilAgreement(seq int, expectedOp Op) bool {
 
 func (kv *DisKV) startOp(op Op) (Err, string) {
     for {
-        kv.px.Start(kv.seq + 1, op)
         kv.seq = kv.seq + 1
+        kv.px.Start(kv.seq, op)
         if kv.waitUntilAgreement(kv.seq, op) {
             break
         }
@@ -423,7 +423,7 @@ func (kv *DisKV) Sync(args *SyncArgs, reply *SyncReply) error {
     // construct SyncOp
     shard := args.Shard
     uuid := nrand()
-    op := Op{Type: SyncOp, UUID: uuid}
+    op := Op{UUID: uuid, Type: SyncOp}
     kv.startOp(op)
 
     reply.Err = OK
@@ -463,30 +463,54 @@ func (reply *SyncReply) merge(otherReply SyncReply) {
     }
 }
 
-func (kv *DisKV) reConfigure(newConfig shardmaster.Config) bool {
+func (kv *DisKV) reConfigure(newConfig shardmaster.Config, reboot bool) bool {
     // get all synced data
     oldConfig := &kv.config
     syncData := SyncReply{OK, map[string]string{}, map[string]int{},
         map[string]Err{}, map[string]string{}}
     for i := 0; i < shardmaster.NShards; i++ {
-        if newConfig.Shards[i] == kv.gid && oldConfig.Shards[i] != kv.gid && len(oldConfig.Groups[oldConfig.Shards[i]]) > 0 {
-            args := &SyncArgs{}
-            args.Shard = i
-            args.Config = *oldConfig
-            synced := false
-            var reply SyncReply
-            for _, srv := range oldConfig.Groups[oldConfig.Shards[i]] {
-                ok := call(srv, "DisKV.Sync", args, &reply)
-                if ok && reply.Err == OK {
-                    synced = true
-                    break
+        if (reboot) {
+            if newConfig.Shards[i] == kv.gid {
+                args := &SyncArgs{}
+                args.Shard = i
+                args.Config = newConfig
+                synced := false
+                var reply SyncReply
+                for _, srv := range newConfig.Groups[newConfig.Shards[i]] {
+                    ok := call(srv, "DisKV.Sync", args, &reply)
+                    if ok && reply.Err == OK {
+                        synced = true
+                        break
+                    }
                 }
-            }
-            if !synced {
-                return false
-            }
 
-            syncData.merge(reply)
+                if !synced {
+                    return false
+                }
+
+                syncData.merge(reply)
+            }
+        } else {    
+            if newConfig.Shards[i] == kv.gid && oldConfig.Shards[i] != kv.gid && len(oldConfig.Groups[oldConfig.Shards[i]]) > 0 {
+                args := &SyncArgs{}
+                args.Shard = i
+                args.Config = *oldConfig
+                synced := false
+                var reply SyncReply
+                for _, srv := range oldConfig.Groups[oldConfig.Shards[i]] {
+                    ok := call(srv, "DisKV.Sync", args, &reply)
+                    if ok && reply.Err == OK {
+                        synced = true
+                        break
+                    }
+                }
+
+                if !synced {
+                    return false
+                }
+
+                syncData.merge(reply)
+            }
         }
     }
 
@@ -519,7 +543,7 @@ func (kv *DisKV) tick() {
     if (kv.config.Num < latestConfig.Num) {
         for i := kv.config.Num + 1; i <= latestConfig.Num; i++ {
             newConfig := kv.sm.Query(i)
-            if (!kv.reConfigure(newConfig)) {
+            if (!kv.reConfigure(newConfig, false)) {
                 return
             }
         }
@@ -620,10 +644,13 @@ func StartServer(gid int64, shardmasters []string,
             kv.seen = data.Seen
             kv.replyOfErr = data.ReplyOfErr
             kv.replyOfValue = data.ReplyOfValue
-            kv.seq = data.Seq
             kv.config = data.Config
             kv.px.SetInstances(data.Instances)
             kv.px.SetDones(data.Dones)
+            kv.seq = kv.px.MaxDecided()
+        } else {
+            latestConfig := kv.sm.Query(-1)
+            kv.reConfigure(latestConfig, true)
         }
         // fmt.Printf("Restart!\n")
         // fmt.Printf("%v\n", err)

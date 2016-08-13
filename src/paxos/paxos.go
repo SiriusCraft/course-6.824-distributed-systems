@@ -392,7 +392,7 @@ func (px *Paxos) Min() int {
 
 	/*
 	for seq, _ := range px.instances {
-		if seq <= minSeq && px.instances[seq].decided {
+		if seq <= minSeq && px.instances[seq].Decided {
 			delete(px.instances, seq)
 		}
 	}
@@ -452,6 +452,20 @@ func (px *Paxos) GetDones() map[int]int {
 	}
 
 	return dones
+}
+
+func (px *Paxos) MaxDecided() int {
+	// Your code here.
+	px.mu.Lock()
+	defer px.mu.Unlock()
+
+	maxSeq := -1
+	for seq, _ := range px.instances {
+		if seq > maxSeq && px.instances[seq].Decided {
+			maxSeq = seq
+		}
+	}
+	return maxSeq
 }
 
 //
