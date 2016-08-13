@@ -74,7 +74,6 @@ type PersistentData struct {
     Seen          map[string]int
     ReplyOfErr    map[string]Err
     ReplyOfValue  map[string]string
-    Seq           int
     Config        shardmaster.Config
     Instances     map[int]paxos.PaxosInstance
     Dones         map[int]int
@@ -334,6 +333,12 @@ func (kv *DisKV) applyOp(op Op) {
             }
         }
 
+        if op.SyncData.Instances != nil {
+            kv.px.SetInstances(op.SyncData.Instances)
+            kv.px.SetDones(op.SyncData.Dones)
+            kv.seq = kv.px.MaxDecided()
+        }
+
         // update config
         kv.config = op.Config
     }
@@ -417,11 +422,15 @@ func (kv *DisKV) Sync(args *SyncArgs, reply *SyncReply) error {
         return nil
     }
 
+    fmt.Printf("what1?")
+
     kv.mu.Lock()
     defer kv.mu.Unlock()
 
+    fmt.Printf("what2?")
+
     // construct SyncOp
-    shard := args.Shard
+    shard, reboot := args.Shard, args.Reboot
     uuid := nrand()
     op := Op{UUID: uuid, Type: SyncOp}
     kv.startOp(op)
@@ -443,7 +452,23 @@ func (kv *DisKV) Sync(args *SyncArgs, reply *SyncReply) error {
         reply.ReplyOfValue[client] = kv.replyOfValue[client]
     }
 
+    if (reboot) {
+        reply.Instances = kv.px.GetInstances()
+        reply.Dones = kv.px.GetDones()
+    }
+
     return nil
+}
+
+func (reply *SyncReply) maxDecided() int {
+    maxSeq := -1
+    for seq, _ := range reply.Instances {
+        if seq > maxSeq && reply.Instances[seq].Decided {
+            maxSeq = seq
+        }
+    }
+
+    return maxSeq
 }
 
 func (reply *SyncReply) merge(otherReply SyncReply) {
@@ -461,27 +486,44 @@ func (reply *SyncReply) merge(otherReply SyncReply) {
             reply.ReplyOfValue[client] = otherReply.ReplyOfValue[client]
         }
     }
+
+    if reply.maxDecided() < otherReply.maxDecided() {
+        reply.Instances = otherReply.Instances
+        reply.Dones = otherReply.Dones
+    }
 }
 
 func (kv *DisKV) reConfigure(newConfig shardmaster.Config, reboot bool) bool {
     // get all synced data
     oldConfig := &kv.config
     syncData := SyncReply{OK, map[string]string{}, map[string]int{},
-        map[string]Err{}, map[string]string{}}
+        map[string]Err{}, map[string]string{}, nil, nil}
     for i := 0; i < shardmaster.NShards; i++ {
         if (reboot) {
             if newConfig.Shards[i] == kv.gid {
                 args := &SyncArgs{}
                 args.Shard = i
                 args.Config = newConfig
+                args.Reboot = true
                 synced := false
                 var reply SyncReply
                 for _, srv := range newConfig.Groups[newConfig.Shards[i]] {
-                    ok := call(srv, "DisKV.Sync", args, &reply)
-                    if ok && reply.Err == OK {
-                        synced = true
-                        break
+                    fmt.Printf("%v %v\n", srv, kv.dir)
+                    ch := make(chan bool, 1)
+                    go func() {
+                        ch <- call(srv, "DisKV.Sync", args, &reply)
+                    }()
+                    select {
+                    case ok:= <-ch:
+                        if ok && reply.Err == OK {
+                            synced = true
+                            break
+                        }
+                    case <- time.After(time.Second * 1):
+                        fmt.Println("Timeout!")    
                     }
+                    
+                    
                 }
 
                 if !synced {
@@ -495,6 +537,7 @@ func (kv *DisKV) reConfigure(newConfig shardmaster.Config, reboot bool) bool {
                 args := &SyncArgs{}
                 args.Shard = i
                 args.Config = *oldConfig
+                args.Reboot = false
                 synced := false
                 var reply SyncReply
                 for _, srv := range oldConfig.Groups[oldConfig.Shards[i]] {

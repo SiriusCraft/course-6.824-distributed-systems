@@ -1,6 +1,7 @@
 package diskv
 
 import "shardmaster"
+import "paxos"
 
 //
 // Sharded key/value server.
@@ -50,6 +51,7 @@ type GetReply struct {
 type SyncArgs struct {
 	Shard  int
 	Config shardmaster.Config
+	Reboot bool
 }
 
 type SyncReply struct {
@@ -58,4 +60,6 @@ type SyncReply struct {
 	Seen 	   	  map[string]int
 	ReplyOfErr 	  map[string]Err
 	ReplyOfValue  map[string]string
+	Instances     map[int]paxos.PaxosInstance
+    Dones         map[int]int
 }
