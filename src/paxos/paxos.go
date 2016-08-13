@@ -83,18 +83,18 @@ type PaxosReply struct {
 }
 
 type PaxosInstance struct {
-	highestPreparedNumber string
-	highestAcceptedNumber string
-	value interface{}
-	decided bool
+	HighestPreparedNumber string
+	HighestAcceptedNumber string
+	Value interface{}
+	Decided bool
 }
 
 func (px *Paxos) MakePaxosInstance(seq int, v interface{}) {
 	px.instances[seq] = &PaxosInstance{
-		highestPreparedNumber: INITIAL_NUMBER,
-		highestAcceptedNumber: INITIAL_NUMBER, 
-		value: v,
-		decided: false}
+		HighestPreparedNumber: INITIAL_NUMBER,
+		HighestAcceptedNumber: INITIAL_NUMBER, 
+		Value: v,
+		Decided: false}
 }
 
 //
@@ -238,15 +238,15 @@ func (px *Paxos) ProcessPrepare(args PaxosArgs, reply *PaxosReply) error {
 		px.MakePaxosInstance(seq, nil)
 		reply.Result = OK
 	} else {
-		if (number > px.instances[seq].highestPreparedNumber) {
+		if (number > px.instances[seq].HighestPreparedNumber) {
 			reply.Result = OK
 		}
 	}
 	
 	if reply.Result == OK {
-		px.instances[seq].highestPreparedNumber = number
-		reply.Number = px.instances[seq].highestAcceptedNumber
-		reply.Value = px.instances[seq].value
+		px.instances[seq].HighestPreparedNumber = number
+		reply.Number = px.instances[seq].HighestAcceptedNumber
+		reply.Value = px.instances[seq].Value
 	}
 
 	return nil
@@ -266,10 +266,10 @@ func (px *Paxos) ProcessAccept(args PaxosArgs, reply *PaxosReply) error {
 		px.MakePaxosInstance(seq, nil)
 	}
 
-	if number >= px.instances[seq].highestPreparedNumber {
-		px.instances[seq].highestPreparedNumber = number
-		px.instances[seq].highestAcceptedNumber = number
-		px.instances[seq].value = value
+	if number >= px.instances[seq].HighestPreparedNumber {
+		px.instances[seq].HighestPreparedNumber = number
+		px.instances[seq].HighestAcceptedNumber = number
+		px.instances[seq].Value = value
 		reply.Result = OK
 	}
 
@@ -288,9 +288,9 @@ func (px *Paxos) ProcessDecision(args PaxosArgs, reply *PaxosReply) error {
 	if !exists {
 		px.MakePaxosInstance(seq, nil)
 	}
-	px.instances[seq].highestAcceptedNumber = number
-	px.instances[seq].value = value
-	px.instances[seq].decided = true
+	px.instances[seq].HighestAcceptedNumber = number
+	px.instances[seq].Value = value
+	px.instances[seq].Decided = true
 
 	if px.dones[args.Me] < args.Done {
 		px.dones[args.Me] = args.Done
@@ -390,11 +390,13 @@ func (px *Paxos) Min() int {
 		}
 	}
 
+	/*
 	for seq, _ := range px.instances {
 		if seq <= minSeq && px.instances[seq].decided {
 			delete(px.instances, seq)
 		}
 	}
+	*/
 
 	return minSeq + 1
 }
@@ -416,13 +418,41 @@ func (px *Paxos) Status(seq int) (Fate, interface{}) {
 	defer px.mu.Unlock()
 
 	_, exist := px.instances[seq]; 
-	if !exist || !px.instances[seq].decided {
+	if !exist || !px.instances[seq].Decided {
 		return Pending, nil
 	}
-	return Decided, px.instances[seq].value;
+	return Decided, px.instances[seq].Value;
 }
 
+func (px *Paxos) SetInstances(instances map[int]PaxosInstance) {
+	for k, v := range instances {
+		px.instances[k] = &v
+	}
+}
 
+func (px *Paxos) GetInstances() map[int]PaxosInstance {
+	instances := make(map[int]PaxosInstance)
+	for k, v := range px.instances {
+		instances[k] = *v
+	}
+
+	return instances
+}
+
+func (px *Paxos) SetDones(dones map[int]int) {
+	for k, v := range dones {
+		px.dones[k] = v
+	}
+}
+
+func (px *Paxos) GetDones() map[int]int {
+	dones := make(map[int]int)
+	for k, v := range px.dones {
+		dones[k] = v
+	}
+
+	return dones
+}
 
 //
 // tell the peer to shut itself down.

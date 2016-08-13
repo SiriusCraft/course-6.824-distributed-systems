@@ -38,6 +38,7 @@ const (
 
 type Op struct {
 	// Your definitions here.
+    UUID        int64
 	Type        int
 	Key         string
     Value       string
@@ -74,6 +75,9 @@ type PersistentData struct {
     ReplyOfErr    map[string]Err
     ReplyOfValue  map[string]string
     Seq           int
+    Config        shardmaster.Config
+    Instances     map[int]paxos.PaxosInstance
+    Dones         map[int]int
 }
 
 //
@@ -183,7 +187,7 @@ func (kv *DisKV) savePersistentData() error {
     var fout bytes.Buffer      
     enc := gob.NewEncoder(&fout)
     data := PersistentData{Seen: kv.seen, ReplyOfErr: kv.replyOfErr, ReplyOfValue: kv.replyOfValue,
-        Seq: kv.seq}
+        Seq: kv.seq, Config: kv.config, Instances: kv.px.GetInstances(), Dones: kv.px.GetDones()}
     if err := enc.Encode(data); err != nil {
         return err
     }
@@ -226,7 +230,7 @@ func (kv *DisKV) checkSeen(op Op) bool {
 }
 
 func isSameOp(op1 Op, op2 Op) bool {
-    if op1.Client == op2.Client && op1.Seq == op2.Seq {
+    if op1.Type == op2.Type && op1.UUID == op2.UUID && op1.Client == op2.Client && op1.Seq == op2.Seq {
         return true
     }
     return false
@@ -362,9 +366,8 @@ func (kv *DisKV) waitUntilAgreement(seq int, expectedOp Op) bool {
 
 func (kv *DisKV) startOp(op Op) (Err, string) {
     for {
+        kv.px.Start(kv.seq + 1, op)
         kv.seq = kv.seq + 1
-        
-        kv.px.Start(kv.seq, op)
         if kv.waitUntilAgreement(kv.seq, op) {
             break
         }
@@ -380,7 +383,8 @@ func (kv *DisKV) Get(args *GetArgs, reply *GetReply) error {
 	
 	// construct GetOp
     seq, client, key := args.Seq, args.Me, args.Key
-    op := Op{Type: GetOp, Key: key, Client: client, Seq: seq}
+    uuid := nrand()
+    op := Op{UUID: uuid, Type: GetOp, Key: key, Client: client, Seq: seq}
     reply.Err, reply.Value = kv.startOp(op)
 
 	return nil
@@ -395,11 +399,12 @@ func (kv *DisKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
     // construct GetOp
     seq, client, opType := args.Seq, args.Me, args.Op
     key, value := args.Key, args.Value
+    uuid := nrand()
     var op Op
     if opType == "Put" {
-    	op = Op{Type: PutOp, Key: key, Value: value, Client: client, Seq: seq}
+    	op = Op{UUID: uuid, Type: PutOp, Key: key, Value: value, Client: client, Seq: seq}
 	} else {
-		op = Op{Type: AppendOp, Key: key, Value: value, Client: client, Seq: seq}
+		op = Op{UUID: uuid, Type: AppendOp, Key: key, Value: value, Client: client, Seq: seq}
 	}
     reply.Err, _ = kv.startOp(op)
     
@@ -417,7 +422,8 @@ func (kv *DisKV) Sync(args *SyncArgs, reply *SyncReply) error {
 
     // construct SyncOp
     shard := args.Shard
-    op := Op{Type: SyncOp}
+    uuid := nrand()
+    op := Op{Type: SyncOp, UUID: uuid}
     kv.startOp(op)
 
     reply.Err = OK
@@ -485,7 +491,8 @@ func (kv *DisKV) reConfigure(newConfig shardmaster.Config) bool {
     }
 
     // construct ReconfigurationOp
-    op := Op{Type: ReconfigurationOp, Config: newConfig, SyncData: syncData}
+    uuid := nrand()
+    op := Op{UUID: uuid, Type: ReconfigurationOp, Config: newConfig, SyncData: syncData}
     kv.startOp(op)
 
     return true
@@ -509,12 +516,18 @@ func (kv *DisKV) tick() {
     // get latest config
     latestConfig := kv.sm.Query(-1)
     // re-configure one by one in order
-    for i := kv.config.Num + 1; i <= latestConfig.Num; i++ {
-        newConfig := kv.sm.Query(i)
-        if (!kv.reConfigure(newConfig)) {
-            return
+    if (kv.config.Num < latestConfig.Num) {
+        for i := kv.config.Num + 1; i <= latestConfig.Num; i++ {
+            newConfig := kv.sm.Query(i)
+            if (!kv.reConfigure(newConfig)) {
+                return
+            }
         }
-    }
+    } else {
+        uuid := nrand()
+        op := Op{UUID: uuid, Type: SyncOp}
+        kv.startOp(op)
+    } 
 }
 
 // tell the server to shut itself down.
@@ -608,6 +621,9 @@ func StartServer(gid int64, shardmasters []string,
             kv.replyOfErr = data.ReplyOfErr
             kv.replyOfValue = data.ReplyOfValue
             kv.seq = data.Seq
+            kv.config = data.Config
+            kv.px.SetInstances(data.Instances)
+            kv.px.SetDones(data.Dones)
         }
         // fmt.Printf("Restart!\n")
         // fmt.Printf("%v\n", err)
