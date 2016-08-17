@@ -16,7 +16,7 @@ If we increase the checkpointing interval as one second, which would require so 
 
 #### Question:
 
-Flat Datacenter Storage Suppose tractserver T1 is temporarily unreachable due to a network problem, so the metadata server drops T1 from the TLT. Then the network problem goes away, but for a while the metadata server is not aware that T1's status has changed. During this time could T1 serve client requests to read and write tracts that it stores? If yes, give an example of how this could happen. If no, explain what mechanism(s) prevent this from happening.
+Suppose tractserver T1 is temporarily unreachable due to a network problem, so the metadata server drops T1 from the TLT. Then the network problem goes away, but for a while the metadata server is not aware that T1's status has changed. During this time could T1 serve client requests to read and write tracts that it stores? If yes, give an example of how this could happen. If no, explain what mechanism(s) prevent this from happening.
 
 #### Answer:
 
@@ -84,7 +84,7 @@ For example, a server **A** reads the value **x** successfully and thus holds a 
 
 #### Question:
 
-Distributed Shared Memory on Standard Workstations and Operating Systems. Suppose that a simplified version of Treadmarks, called Dreadmarks, simply sent all modifications of variables between an acquire and a release to the next processor to acquire the same lock. No other modifications are sent. What changes does Treadmarks send that Dreadmarks does not? Outline a specific simple situation in which Treadmarks would provide more useful or intuitive memory behavior than Dreadmarks.
+Suppose that a simplified version of Treadmarks, called Dreadmarks, simply sent all modifications of variables between an acquire and a release to the next processor to acquire the same lock. No other modifications are sent. What changes does Treadmarks send that Dreadmarks does not? Outline a specific simple situation in which Treadmarks would provide more useful or intuitive memory behavior than Dreadmarks.
 
 #### Answer:
 
@@ -95,7 +95,7 @@ Treadmarks only send the write notice to the next acquirer about which pages hav
 
 #### Question:
 
-Ficus Imagine a situation like the paper's Figure 1, but in which only Site A updates file Foo. What should Ficus do in that case when the partition is merged? Explain how Ficus could tell the difference between the situation in which both Site A and Site B update Foo, and the situation in which only Site A updates Foo.
+Ficus imagine a situation like the paper's Figure 1, but in which only Site A updates file Foo. What should Ficus do in that case when the partition is merged? Explain how Ficus could tell the difference between the situation in which both Site A and Site B update Foo, and the situation in which only Site A updates Foo.
 
 #### Answer:
 
@@ -165,3 +165,16 @@ Section 3.3 implies that a client that writes data does not delete the correspon
 #### Answer:
 
 As the Gutter servers are already backups for failed service, the deletion of keys would cause more traffic for the servers which would harm read performance.
+
+
+## Lecture 17
+
+#### Question:
+
+Briefly explain why it is (or isn't) okay to use relaxed consistency for social applications (see Section 4). Does PNUTS handle the type of problem presented by Example 1 in Section 1, and if so, how?
+
+#### Answer:
+
+As illustrated in Example 1 in Section 1, it is not okay to use relaxed consistency for social applications when user wants sequential actions, for example, forbidding mom for a specific photo album then uploading a photo into it. 
+
+PNUTS handle the problem by (1) using per-record timeline consistence, (2) allowing applications to specify the degree of read consistency. 
