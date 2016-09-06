@@ -178,3 +178,14 @@ Briefly explain why it is (or isn't) okay to use relaxed consistency for social 
 As illustrated in Example 1 in Section 1, it is not okay to use relaxed consistency for social applications when user wants sequential actions, for example, forbidding mom for a specific photo album then uploading a photo into it. 
 
 PNUTS handle the problem by (1) using per-record timeline consistence, (2) allowing applications to specify the degree of read consistency. 
+
+
+## Lecture 18
+
+#### Question:
+
+Suppose Dynamo server S1 is perfectly healthy with a working network connection. By mistake, an administrator instructs server S2 to remove S1 using the mechanisms described in 4.8.1 and 4.9. It takes a while for the membership change to propagate from S2 to the rest of the system (including S1), so for a while some clients and servers will think that S1 is still part of the system. Will Dynamo operate correctly in this situation? Why, or why not?
+
+#### Answer:
+
+Yes. As Dynamo used gossip protocol to propagate membership changes, some clients and servers are still able to communicate with S1.
