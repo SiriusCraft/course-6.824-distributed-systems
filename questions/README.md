@@ -189,3 +189,14 @@ Suppose Dynamo server S1 is perfectly healthy with a working network connection.
 #### Answer:
 
 Yes. As Dynamo used gossip protocol to propagate membership changes, some clients and servers are still able to communicate with S1.
+
+
+## Lecture 19
+
+#### Question:
+
+Building distributed systems in the real world have both technical challenges (e.g., dealing with bad data) and non-technical ones (e.g., how to structure a team). Which do you think is harder to get right? What examples can you cite from your personal experience?
+
+#### Answer:
+
+I think it is really hard to organize the data because they may be structured, semi-structured or not structured and may come from various sources and have different semantic meanings. You have to carefully design the schema for them and collaborate with people from various areas. Once I was working on a project that did some cohort analysis using data from external sources, I came across tens of questions during ingesting data, calculating and displaying that I could not imagine before this.
