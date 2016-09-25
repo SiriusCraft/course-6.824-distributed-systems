@@ -200,3 +200,14 @@ Building distributed systems in the real world have both technical challenges (e
 #### Answer:
 
 I think it is really hard to organize the data because they may be structured, semi-structured or not structured and may come from various sources and have different semantic meanings. You have to carefully design the schema for them and collaborate with people from various areas. Once I was working on a project that did some cohort analysis using data from external sources, I came across tens of questions during ingesting data, calculating and displaying that I could not imagine before this.
+
+
+## Lecture 20
+
+#### Question:
+
+Starting at the bottom-left of page 310, the paper mentions that a participant writes new versions to disk twice: once before replying to a prepare message, and once after receiving a commit message. Why are both writes necessary? What could go wrong if participants replied to the prepare without writing the disk, instead only writing the disk after receiving a commit message?
+
+#### Answer:
+
+If the participant crashed, it could not know whether it has accepted the `prepare` message. 
