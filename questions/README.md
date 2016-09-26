@@ -211,3 +211,14 @@ Starting at the bottom-left of page 310, the paper mentions that a participant w
 #### Answer:
 
 If the participant crashed, it could not know whether it has accepted the `prepare` message. 
+
+
+## Lecture 21
+
+#### Question:
+
+The paper mentions that, after a server commits a transaction, the server sends out invalidation messages to clients that are caching data written by that transaction. It may take a while for those invalidations to arrive; during that time, transactions at other clients may read stale cached data. How does Thor cope with this situation?
+
+#### Answer:
+
+The client has recevied the `prepare` message for this to-be-committed transaction and responsed `ok`, thus it will abort the transaction reading stale cached data.
