@@ -222,3 +222,18 @@ The paper mentions that, after a server commits a transaction, the server sends 
 #### Answer:
 
 The client has recevied the `prepare` message for this to-be-committed transaction and responsed `ok`, thus it will abort the transaction reading stale cached data.
+
+
+## Lecture 22
+
+#### Question:
+
+Consider a Kademlia-based key-value store with a million users, with non-mutable keys: once a key is published, it will not be modified. The k/v store experiences a network partition into two roughly equal partitions A and B for 1.5 hours.
+
+X is a very popular key. Would nodes in both A and B likely be able to access X's value (1) during the partition? (2) 10 minutes after the network is joined? (3) 25 hours after the network is joined?
+
+(optional) Would your answer change if X was an un-popular key?
+
+#### Answer:
+
+As X is a very popular key, it will be replicated at several servers, thus it can be accessed in these three situations. But if X is an un-popular key, it can not be accessed during the partition(if it was only stored in one server) and may not be accessed 10 minutes after the network is joined as the fresh were done every hour. It can be accessed 25 hours after the network is joined.
