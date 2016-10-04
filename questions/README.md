@@ -237,3 +237,14 @@ X is a very popular key. Would nodes in both A and B likely be able to access X'
 #### Answer:
 
 As X is a very popular key, it will be replicated at several servers, thus it can be accessed in these three situations. But if X is an un-popular key, it can not be accessed during the partition(if it was only stored in one server) and may not be accessed 10 minutes after the network is joined as the fresh were done every hour. It can be accessed 25 hours after the network is joined.
+
+
+## Lecture 23
+
+#### Question:
+
+Try to buy something with Bitcoin. It may help to cooperate with some 6.824 class-mates, and it may help to start a few days early. If you decide to give up, that's OK. Briefly describe your experience.
+
+#### Answer:
+
+Passed.
